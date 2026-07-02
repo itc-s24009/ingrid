@@ -50,7 +50,6 @@ def create_tables():
             db_init_error = None
         except Exception as e:
             error_str = str(e)
-            # すでにテーブル（または型）が存在することによる重複エラーは、実質作成成功とみなして無視する
             if "already exists" in error_str or "duplicate key" in error_str:
                 _db_initialized = True
                 db_init_error = None
@@ -490,7 +489,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (元の定義をそのまま引き継ぎ)
+# HTMLテンプレート (使用ゲージ・使用シンボル表現に改修、6→0のみバーンアウトに制限)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -518,21 +517,21 @@ HTML_TEMPLATE = """
 
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-0.5">コンボ名・状況</label>
-                            <input type="text" name="title" id="input-title" class="w-full px-3 py-1.5 border rounded-lg focus:ring-1 focus:ring-blue-500 text-sm" placeholder="例: 強Kパニカン始動" required>
+                            <input type="text" name="title" id="input-title" class="w-full px-3 py-1.5 border rounded-lg focus:ring-1 focus:ring-blue-500 text-sm" placeholder="例: 強Kパニカン" required>
                         </div>
 
-                        <!-- 始動属性の設定 -->
+                        <!-- 始動属性・使用リソースの設定 -->
                         <div class="grid grid-cols-3 gap-2">
                             <div>
                                 <label class="block text-[11px] font-bold text-gray-600 mb-0.5">始動状態</label>
                                 <select name="start_type" id="input-start-type" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     <option value="normal">通常ヒット</option>
-                                    <option value="counter">カウンター (有利+2)</option>
-                                    <option value="punish">パニカン (有利+4)</option>
+                                    <option value="counter">カウンター (+2F)</option>
+                                    <option value="punish">パニカン (+4F)</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">始動ゲージ</label>
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">使用可能ゲージ</label>
                                 <select name="drive_start" id="input-drive-start" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     {% for g in range(6, -1, -1) %}
                                     <option value="{{ g }}">{{ g }}P</option>
@@ -540,7 +539,7 @@ HTML_TEMPLATE = """
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">始動シンボル</label>
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">使用可能シンボル</label>
                                 <select name="symbol_start" id="input-symbol-start" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     {% for s in range(0, 5) %}
                                     <option value="{{ s }}">{{ s }}個</option>
@@ -600,7 +599,7 @@ HTML_TEMPLATE = """
                                 <span id="preview-damage" class="text-xl font-black text-blue-700">0</span>
                             </div>
                             <div class="text-right">
-                                <span class="text-[9px] font-bold text-blue-500 block">残ドライブ / 残シンボル</span>
+                                <span class="text-[9px] font-bold text-blue-500 block">リソース使用状況</span>
                                 <span id="preview-resources" class="font-bold text-blue-900">--</span>
                             </div>
                         </div>
@@ -633,15 +632,15 @@ HTML_TEMPLATE = """
                 <div class="bg-white rounded-xl shadow p-3 border border-gray-200">
                     <form action="/" method="get" class="flex flex-wrap gap-2 items-center w-full">
                         <select name="drive_filter" class="px-2 py-1 border rounded text-xs">
-                            <option value="all" {% if drive_filter == 'all' or not drive_filter %}selected{% endif %}>ゲージ: すべて</option>
+                            <option value="all" {% if drive_filter == 'all' or not drive_filter %}selected{% endif %}>使用ゲージ: すべて</option>
                             {% for g in range(6, -1, -1) %}
-                            <option value="{{ g }}" {% if drive_filter == g|string %}selected{% endif %}>{{ g }}P始動</option>
+                            <option value="{{ g }}" {% if drive_filter == g|string %}selected{% endif %}>使用可能ゲージ: {{ g }}P</option>
                             {% endfor %}
                         </select>
                         <select name="symbol_filter" class="px-2 py-1 border rounded text-xs">
-                            <option value="all" {% if symbol_filter == 'all' or not symbol_filter %}selected{% endif %}>シンボル: すべて</option>
+                            <option value="all" {% if symbol_filter == 'all' or not symbol_filter %}selected{% endif %}>使用シンボル: すべて</option>
                             {% for s in range(0, 5) %}
-                            <option value="{{ s }}" {% if symbol_filter == s|string %}selected{% endif %}>{{ s }}個始動</option>
+                            <option value="{{ s }}" {% if symbol_filter == s|string %}selected{% endif %}>使用可能シンボル: {{ s }}個</option>
                             {% endfor %}
                         </select>
                         <input type="text" name="search" class="flex-1 px-3 py-1 border rounded text-xs" placeholder="検索" value="{{ search_query or '' }}">
@@ -658,6 +657,7 @@ HTML_TEMPLATE = """
                         {% for combo in combos %}
                         {% set drive_remain = combo.drive_start - combo.drive_cost %}
                         {% set symbol_remain = combo.symbol_start - combo.symbol_cost %}
+                        {% set is_burnout_combo = (combo.drive_start == 6 and drive_remain <= 0) %}
                         <div class="bg-white rounded-xl shadow p-5 border border-gray-200 relative">
                             <div class="absolute top-4 right-4 flex gap-1">
                                 <button onclick="editCombo('{{ combo.id }}', '{{ combo.title|e }}', '{{ combo.start_type }}', '{{ combo.drive_start }}', '{{ combo.symbol_start }}', '{{ combo.notes|e }}', '{{ combo.raw_moves_json|e }}')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded">編集</button>
@@ -677,11 +677,11 @@ HTML_TEMPLATE = """
 
                             <div class="flex flex-wrap gap-1.5 mb-2.5">
                                 <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-black rounded">💥 {{ combo.damage }} dmg</span>
-                                <span class="px-2 py-0.5 text-xs font-bold rounded {{ 'bg-black text-yellow-400' if drive_remain <= 0 else 'bg-blue-100 text-blue-800' }}">
-                                    🔵 ドライブ: {{ combo.drive_start }} ➔ {{ drive_remain if drive_remain >= 0 else 0 }}P {% if drive_remain <= 0 %}(バーンアウト！){% endif %}
+                                <span class="px-2 py-0.5 text-xs font-bold rounded {{ 'bg-black text-yellow-400' if is_burnout_combo else 'bg-blue-100 text-blue-800' }}">
+                                    🔵 使用ゲージ: {{ combo.drive_cost }}P (残り {{ drive_remain if drive_remain >= 0 else 0 }}P) {% if is_burnout_combo %}(バーンアウト！){% endif %}
                                 </span>
                                 <span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded">
-                                    🔴 シンボル: {{ combo.symbol_start }} ➔ {{ symbol_remain if symbol_remain >= 0 else 0 }}個
+                                    🔴 使用シンボル: {{ combo.symbol_cost }}個 (残り {{ symbol_remain if symbol_remain >= 0 else 0 }}個)
                                 </span>
                             </div>
 
@@ -1145,9 +1145,15 @@ HTML_TEMPLATE = """
 
             document.getElementById('preview-damage').innerText = damage;
             
-            let resourceText = `${driveStart}P ➔ ${Math.max(0, driveRemain)}P | 🔴 ${symbolStart} ➔ ${Math.max(0, symbolRemain)}個`;
-            if (driveRemain <= 0 && currentMoves.length > 0) {
-                resourceText = `🔴 バーンアウト！ | 🔴 ${symbolStart} ➔ ${Math.max(0, symbolRemain)}個`;
+            // 使用量（消費量）の計算
+            const driveCost = driveStart - driveRemain;
+            const symbolCost = symbolStart - symbolRemain;
+            
+            let resourceText = `使用ゲージ: ${driveCost}P (残 ${Math.max(0, driveRemain)}P) | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個)`;
+            
+            // ゲージが初期最大値「6P」から「0P（以下）」になった場合のみ、バーンアウト！を表記
+            if (driveStart === 6 && driveRemain <= 0 && currentMoves.length > 0) {
+                resourceText = `🔴 バーンアウト！ | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個)`;
             }
             document.getElementById('preview-resources').innerText = resourceText;
 
@@ -1249,7 +1255,6 @@ HTML_TEMPLATE = """
 @app.route('/', methods=['GET'])
 def index():
     global db_init_error
-    # もし重複ではない致命的なデータベースエラーが発生している場合は、エラー画面を表示
     if db_init_error:
         return f"""
         <div style="padding: 20px; font-family: sans-serif; background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 8px; max-width: 800px; margin: 40px auto;">
@@ -1264,7 +1269,7 @@ def index():
     symbol_filter = request.args.get('symbol_filter')
     search_query = request.args.get('search')
     
-    # データベースから全レコードを取得（新しい順）
+    # データベースから全レコードを取得
     try:
         combos_db = Combo.query.order_by(Combo.id.desc()).all()
     except Exception as e:
