@@ -11,7 +11,6 @@ app = Flask(__name__)
 # ==============================================================================
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
-    # 接続文字列のプロトコル名を標準的な postgresql:// に統一
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
 else:
@@ -37,7 +36,7 @@ class Combo(db.Model):
     moves = db.Column(db.JSON, nullable=False)  # JSON型としてリストを格納
     damage = db.Column(db.Integer, nullable=False)
 
-# エラー特定用のグローバル変数
+# テーブルの遅延作成および競合エラーのハンドリング
 _db_initialized = False
 db_init_error = None
 
@@ -50,12 +49,17 @@ def create_tables():
             _db_initialized = True
             db_init_error = None
         except Exception as e:
-            # エラーが発生した場合、メッセージを記録してクラッシュを抑止
-            db_init_error = str(e)
-            app.logger.error(f"Database initialization failed: {e}")
+            error_str = str(e)
+            # すでにテーブル（または型）が存在することによる重複エラーは、実質作成成功とみなして無視する
+            if "already exists" in error_str or "duplicate key" in error_str:
+                _db_initialized = True
+                db_init_error = None
+            else:
+                db_init_error = error_str
+                app.logger.error(f"Database initialization failed: {e}")
 
 # ==============================================================================
-# 正確なフレーム・CDR・補正仕様のデータベース (SA2補正をすべて1打目に固定 ＆ コンボ無視対応)
+# 正確なフレーム・CDR・補正仕様のデータベース (コンボ補正持続・SA2補正調整版)
 # ==============================================================================
 MOVES_DB = {
     # システムアクション
@@ -65,7 +69,7 @@ MOVES_DB = {
     "ジャストパリィ": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "ドライブ回復1P": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # 通常技・特殊技 (CDR可能/不可能を厳密に定義)
+    # 通常技・特殊技
     "弱P": {"damage": 300, "start_correction": 20, "cdr": True, "startup": 4, "active": 3, "recovery": 7, "advantage": 5, "type": "L"},
     "弱K": {"damage": 300, "start_correction": 20, "cdr": True, "startup": 5, "active": 3, "recovery": 11, "advantage": 2, "type": "L"},
     "中P": {"damage": 600, "start_correction": 0, "cdr": True, "startup": 6, "active": 5, "recovery": 13, "advantage": 1, "type": "M"},
@@ -89,7 +93,7 @@ MOVES_DB = {
     "引強Pタゲコン1": {"damage": 800, "start_correction": 0, "cdr": True, "startup": 14, "active": 3, "recovery": 20, "advantage": 5, "type": "H"},
     "引強Pタゲコン2": {"damage": 800, "start_correction": 0, "cdr": True, "startup": 14, "active": 3, "recovery": 20, "advantage": 5, "type": "H"},
     
-    # 必殺技 (サンシュート系はすべて始動補正20%コンボ補正20%に統一)
+    # 必殺技
     "弱サンシュート": {"damage": 700, "start_correction": 20, "cdr": False, "combo_correction": 20, "type": "S"},
     "中サンシュート": {"damage": 700, "start_correction": 20, "cdr": False, "combo_correction": 20, "type": "S"},
     "強サンシュート": {"damage": 700, "start_correction": 20, "cdr": False, "combo_correction": 20, "type": "S"},
@@ -115,46 +119,30 @@ MOVES_DB = {
     "前サンパニッシュ": {"damage": 1000, "start_correction": 0, "cdr": False, "type": "S"},
     "上サンパニッシュ": {"damage": 1100, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA1 (最低保証30% / 即時補正20%)
+    # SA1
     "SA1_Lv0": {"damage": 1900, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv1": {"damage": 2300, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv2": {"damage": 2700, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
 
-    # SA2発動演出 (0ダメージ・システムユーティリティ扱い)
+    # SA2発動演出
     "SA2発動_Lv0": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv1": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv2": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA2個別分割ヒット (最低保証40% / 即時補正20% / combo_correctionにより100%➔60%始動を実現)
+    # SA2個別分割ヒット
     "SA2_1打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "combo_correction": 30, "type": "S"},
     "SA2_2打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_3打目": {"damage": 600, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_4打目": {"damage": 800, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_5打目": {"damage": 1000, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
 
-    # SA3 / CA (最低保証50% / 即時補正20%)
+    # SA3 / CA
     "SA3": {"damage": 4000, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"},
     "CA": {"damage": 4500, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"}
 }
 
 # ==============================================================================
-# データファイル管理
-# ==============================================================================
-def load_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {"combos": []}
-
-def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-
-# ==============================================================================
-# 順次シミュレーションベースのリソース計算 (最大値を超えないための制限)
+# リソース計算ロジック
 # ==============================================================================
 def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
     drive_curr = start_drive
@@ -163,8 +151,6 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
     
     for m in moves:
         name = m['name']
-        
-        # --- GAINS ---
         if name == "ドライブ回復1P":
             drive_curr = min(6, drive_curr + 1)
             continue
@@ -172,7 +158,6 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
             symbol_curr = min(4, symbol_curr + 1)
             continue
             
-        # --- COSTS ---
         if m.get('cdr', False):
             if drive_curr <= 0:
                 is_invalid = True
@@ -180,7 +165,7 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
         if name == "DR":
             if drive_curr <= 0:
                 is_invalid = True
-            drive_curr -= 1  # DR消費を1Pに修正
+            drive_curr -= 1
         if "OD" in name:
             if drive_curr <= 0:
                 is_invalid = True
@@ -233,14 +218,13 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
                 else:
                     is_invalid = True
                     
-        # バーンアウトした後はドライブが0未満にならずに固定
         if drive_curr < 0:
             drive_curr = 0
             
     return drive_curr, symbol_curr, is_invalid
 
 # ==============================================================================
-# バックエンド計算・詳細生成ロジック (SA2分割ヒット補正スルー)
+# ダメージ計算ロジック
 # ==============================================================================
 def py_calculate_damage(moves, start_type, min_limit=10):
     if not moves:
@@ -250,9 +234,8 @@ def py_calculate_damage(moves, start_type, min_limit=10):
     cdr_active = False
     next_reduction_bonus = 0
     actual_hit_index = 0
-    sa2_saved_corr = 100  # SA2の1打目の最終補正を保存する変数
+    sa2_saved_corr = 100
     
-    # 始動技情報の特定 (システムアクション以外の最初の打撃技)
     first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やられ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
     if not first_actual_name:
         return 0
@@ -262,7 +245,6 @@ def py_calculate_damage(moves, start_type, min_limit=10):
     start_correction = first_move['start_correction']
     first_move_type = first_move.get('type', 'L')
     
-    # 特殊な最初の手数でのグローバルデバフ判定
     first_name = moves[0]['name'] if moves else ""
     impact_wall_active = (first_name == "インパクト壁やられ")
     just_parry_active = (first_name == "ジャストパリィ")
@@ -278,7 +260,6 @@ def py_calculate_damage(moves, start_type, min_limit=10):
         if not move:
             continue
         
-        # --- SA2 2〜5打目の特殊処理 (補正を一切計算・加算せず、1打目の補正をそのまま適用) ---
         if name in ["SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目"]:
             final_corr = sa2_saved_corr
             base_damage = item.get('custom_damage', move['damage'])
@@ -287,10 +268,9 @@ def py_calculate_damage(moves, start_type, min_limit=10):
             continue
             
         base_corr = current_corr
-        if actual_hit_index > 0: # 実際のコンボ打撃順で判定！
+        if actual_hit_index > 0:
             decrease = 10
             if actual_hit_index == 1:
-                # 始動補正の無い弱攻撃を始動にした際、2発目は90%
                 if first_move_type == 'L' and start_correction == 0:
                     decrease = 10
                 else:
@@ -298,17 +278,15 @@ def py_calculate_damage(moves, start_type, min_limit=10):
             elif actual_hit_index == 2:
                 decrease = 10 if start_correction > 0 else 20
                 
-            # コンボ補正の適用 (Hit 3以降の最初の減少ステップのみ消費して適用)
             if next_reduction_bonus > 0 and actual_hit_index >= 2:
                 if actual_hit_index == 2:
                     decrease = next_reduction_bonus + (0 if start_correction > 0 else 10)
                 else:
                     decrease = next_reduction_bonus
-                next_reduction_bonus = 0 # 消費したためクリア
+                next_reduction_bonus = 0
                 
             base_corr = max(10, current_corr - decrease)
             
-            # 即時補正の永続適用
             if actual_hit_index > 0:
                 imm = move.get('immediate_correction', 0)
                 base_corr = base_corr - imm
@@ -325,19 +303,15 @@ def py_calculate_damage(moves, start_type, min_limit=10):
             
         final_corr = int(base_corr * multiplier)
         
-        # 即時補正の減算 (2発目以降)
         if actual_hit_index > 0:
             final_corr = final_corr - move.get('immediate_correction', 0)
             
-        # 最低保証上限の適用 (乗算補正がある場合は10%を基準にして乗算スケーリング)
         current_min_limit = max(1, int(10 * multiplier))
         min_limit_for_move = max(current_min_limit, move.get('minimum_guarantee', 0))
         final_corr = max(min_limit_for_move, final_corr)
         
-        # 単発ダメージをカスタム設定から、もしくはデフォルトDBから取得
         hit_damage = item.get('custom_damage', move['damage'])
         
-        # ODサンライズ➔SA2発動、SA3、CA への派生時ダメージ上書き処理
         if name == "ODサンライズ" and i + 1 < len(moves):
             next_name = moves[i + 1]['name']
             if next_name.startswith("SA2発動") or next_name in ["SA3", "CA"]:
@@ -351,12 +325,10 @@ def py_calculate_damage(moves, start_type, min_limit=10):
             
         total_damage += hit_damage
         
-        # 新しいコンボ補正の検出 (0上書き防止)
         new_bonus = move.get('combo_correction', 0)
         if new_bonus > 0:
             next_reduction_bonus = new_bonus
             
-        # SA2の1打目の補正を保存
         if name == "SA2_1打目":
             sa2_saved_corr = final_corr
             
@@ -409,7 +381,6 @@ def py_get_combo_details(moves, start_type, min_limit=10):
         if not move:
             continue
         
-        # --- SA2 2〜5打目の特殊処理 (補正を一切計算・加算せず、1打目の補正をそのまま適用) ---
         if name in ["SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目"]:
             final_corr = sa2_saved_corr
             base_damage = item.get('custom_damage', move['damage'])
@@ -429,7 +400,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
         base_corr = current_corr
         decrease = 0
-        if actual_hit_index > 0: # 実際のコンボ打撃順で判定！
+        if actual_hit_index > 0:
             decrease = 10
             if actual_hit_index == 1:
                 if first_move_type == 'L' and start_correction == 0:
@@ -438,16 +409,16 @@ def py_get_combo_details(moves, start_type, min_limit=10):
                     decrease = start_correction
             elif actual_hit_index == 2:
                 decrease = 10 if start_correction > 0 else 20
+                
             if next_reduction_bonus > 0 and actual_hit_index >= 2:
                 if actual_hit_index == 2:
                     decrease = next_reduction_bonus + (0 if start_correction > 0 else 10)
                 else:
                     decrease = next_reduction_bonus
-                next_reduction_bonus = 0 # 消費したためクリア
+                next_reduction_bonus = 0
                 
             base_corr = max(10, current_corr - decrease)
             
-            # 即時補正の永続適用
             if actual_hit_index > 0:
                 imm = move.get('immediate_correction', 0)
                 base_corr = base_corr - imm
@@ -464,10 +435,8 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
         final_corr = int(base_corr * multiplier)
         
-        # 単発ダメージの動的取得
         base_damage = item.get('custom_damage', move['damage'])
         
-        # ODサンライズ➔SA2、SA3派生補正
         if name == "ODサンライズ" and i + 1 < len(moves):
             next_name = moves[i + 1]['name']
             if next_name.startswith("SA2発動") or next_name in ["SA3", "CA"]:
@@ -508,7 +477,6 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             "note": note
         })
         
-        # SA2の1打目の補正を保存
         if name == "SA2_1打目":
             sa2_saved_corr = final_corr
             
@@ -522,9 +490,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# ==============================================================================
-# UI テンプレート (Tailwind CSS)
-# ==============================================================================
+# HTMLテンプレート (元の定義をそのまま引き継ぎ)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -566,7 +532,7 @@ HTML_TEMPLATE = """
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">ゲージ</label>
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">始動ゲージ</label>
                                 <select name="drive_start" id="input-drive-start" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     {% for g in range(6, -1, -1) %}
                                     <option value="{{ g }}">{{ g }}P</option>
@@ -574,7 +540,7 @@ HTML_TEMPLATE = """
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">シンボル</label>
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">始動シンボル</label>
                                 <select name="symbol_start" id="input-symbol-start" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     {% for s in range(0, 5) %}
                                     <option value="{{ s }}">{{ s }}個</option>
@@ -634,7 +600,7 @@ HTML_TEMPLATE = """
                                 <span id="preview-damage" class="text-xl font-black text-blue-700">0</span>
                             </div>
                             <div class="text-right">
-                                <span class="text-[9px] font-bold text-blue-500 block">使用ゲージ / 使用シンボル</span>
+                                <span class="text-[9px] font-bold text-blue-500 block">残ドライブ / 残シンボル</span>
                                 <span id="preview-resources" class="font-bold text-blue-900">--</span>
                             </div>
                         </div>
@@ -667,15 +633,15 @@ HTML_TEMPLATE = """
                 <div class="bg-white rounded-xl shadow p-3 border border-gray-200">
                     <form action="/" method="get" class="flex flex-wrap gap-2 items-center w-full">
                         <select name="drive_filter" class="px-2 py-1 border rounded text-xs">
-                            <option value="all" {% if drive_filter == 'all' or not drive_filter %}selected{% endif %}>使用ゲージ: すべて</option>
-                            {% for g in range(0, 7) %}
-                            <option value="{{ g }}" {% if drive_filter == g|string %}selected{% endif %}>{{ g }}P使用</option>
+                            <option value="all" {% if drive_filter == 'all' or not drive_filter %}selected{% endif %}>ゲージ: すべて</option>
+                            {% for g in range(6, -1, -1) %}
+                            <option value="{{ g }}" {% if drive_filter == g|string %}selected{% endif %}>{{ g }}P始動</option>
                             {% endfor %}
                         </select>
                         <select name="symbol_filter" class="px-2 py-1 border rounded text-xs">
-                            <option value="all" {% if symbol_filter == 'all' or not symbol_filter %}selected{% endif %}>使用シンボル: すべて</option>
+                            <option value="all" {% if symbol_filter == 'all' or not symbol_filter %}selected{% endif %}>シンボル: すべて</option>
                             {% for s in range(0, 5) %}
-                            <option value="{{ s }}" {% if symbol_filter == s|string %}selected{% endif %}>シンボル {{ s }}個消費</option>
+                            <option value="{{ s }}" {% if symbol_filter == s|string %}selected{% endif %}>{{ s }}個始動</option>
                             {% endfor %}
                         </select>
                         <input type="text" name="search" class="flex-1 px-3 py-1 border rounded text-xs" placeholder="検索" value="{{ search_query or '' }}">
@@ -690,6 +656,8 @@ HTML_TEMPLATE = """
                     </div>
                     {% else %}
                         {% for combo in combos %}
+                        {% set drive_remain = combo.drive_start - combo.drive_cost %}
+                        {% set symbol_remain = combo.symbol_start - combo.symbol_cost %}
                         <div class="bg-white rounded-xl shadow p-5 border border-gray-200 relative">
                             <div class="absolute top-4 right-4 flex gap-1">
                                 <button onclick="editCombo('{{ combo.id }}', '{{ combo.title|e }}', '{{ combo.start_type }}', '{{ combo.drive_start }}', '{{ combo.symbol_start }}', '{{ combo.notes|e }}', '{{ combo.raw_moves_json|e }}')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded">編集</button>
@@ -709,11 +677,11 @@ HTML_TEMPLATE = """
 
                             <div class="flex flex-wrap gap-1.5 mb-2.5">
                                 <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-black rounded">💥 {{ combo.damage }} dmg</span>
-                                <span class="px-2 py-0.5 text-xs font-bold rounded {{ 'bg-black text-yellow-400' if combo.drive_cost >= 6 else 'bg-blue-100 text-blue-800' }}">
-                                    🔵 使用ゲージ: {{ combo.drive_cost }}P {% if combo.drive_cost >= 6 %}(バーンアウト！){% endif %}
+                                <span class="px-2 py-0.5 text-xs font-bold rounded {{ 'bg-black text-yellow-400' if drive_remain <= 0 else 'bg-blue-100 text-blue-800' }}">
+                                    🔵 ドライブ: {{ combo.drive_start }} ➔ {{ drive_remain if drive_remain >= 0 else 0 }}P {% if drive_remain <= 0 %}(バーンアウト！){% endif %}
                                 </span>
                                 <span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded">
-                                    🔴 使用シンボル: {{ combo.symbol_cost }}個
+                                    🔴 シンボル: {{ combo.symbol_start }} ➔ {{ symbol_remain if symbol_remain >= 0 else 0 }}個
                                 </span>
                             </div>
 
@@ -804,7 +772,6 @@ HTML_TEMPLATE = """
             updateLivePreview();
         }
 
-        // 順次リソース計算シミュレーション (DR消費1P化)
         function simulateResourcesSequentially(moves, startDrive, startSymbols) {
             let driveCurr = startDrive;
             let symbolCurr = startSymbols;
@@ -814,7 +781,6 @@ HTML_TEMPLATE = """
                 const name = moves[i].name;
                 const item = moves[i];
                 
-                // --- GAINS ---
                 if (name === "ドライブ回復1P") {
                     driveCurr = Math.min(6, driveCurr + 1);
                     continue;
@@ -824,14 +790,13 @@ HTML_TEMPLATE = """
                     continue;
                 }
                 
-                // --- COSTS ---
                 if (item.cdr) {
                     if (driveCurr <= 0) isInvalid = true;
                     driveCurr -= 3;
                 }
                 if (name === "DR") {
                     if (driveCurr <= 0) isInvalid = true;
-                    driveCurr -= 1; // DR消費を1Pに修正
+                    driveCurr -= 1;
                 }
                 if (name.includes("OD")) {
                     if (driveCurr <= 0) isInvalid = true;
@@ -896,28 +861,24 @@ HTML_TEMPLATE = """
 
         function updateLivePreview() {
             const startType = document.getElementById('input-start-type').value;
-            // 始動値を常に最大(6Pドライブ・シンボル4個)に固定
-            const driveStart = 6;
-            const symbolStart = 4;
+            const driveStart = parseInt(document.getElementById('input-drive-start').value) || 0;
+            const symbolStart = parseInt(document.getElementById('input-symbol-start').value) || 0;
 
             let damage = 0;
             let currentCorr = 100;
             let cdrActive = false; 
             let nextReductionBonus = 0;
             let actualHitIndex = 0;
-            let sa2SavedCorr = 100; // SA2の一発目の補正を記録する
+            let sa2SavedCorr = 100;
 
             const res = simulateResourcesSequentially(currentMoves, driveStart, symbolStart);
             const driveRemain = res.driveRemain;
             const symbolRemain = res.symbolRemain;
-            const driveCost = driveStart - driveRemain;
-            const symbolCost = symbolStart - symbolRemain;
 
             const firstMoveName = currentMoves.length > 0 ? currentMoves[0].name : "";
             const impactWallActive = (firstMoveName === "インパクト壁やられ");
             const justParryActive = (firstMoveName === "ジャストパリィ");
 
-            // リアルタイム詳細計算書テーブル
             let stepsHTML = `
                 <table class="w-full text-left text-[11px] border-collapse mt-2">
                     <thead>
@@ -940,7 +901,6 @@ HTML_TEMPLATE = """
                 const move = MOVES_DB[item.name];
                 if (!move) continue;
 
-                // DRシステムアクション
                 if (item.name === "DR") {
                     cdrActive = true;
                     stepsHTML += `
@@ -958,7 +918,6 @@ HTML_TEMPLATE = """
                     continue;
                 }
 
-                // 壁やられ ＆ パリィ始動アクション
                 if (item.name === "インパクト壁やられ" || item.name === "ジャストパリィ" || item.name === "ドライブ回復1P" || item.name === "弱サンフレア" || item.name === "弱ソーラーフレア") {
                     stepsHTML += `
                         <tr class="border-b border-gray-100 py-1 bg-yellow-50/50">
@@ -975,7 +934,6 @@ HTML_TEMPLATE = """
                     continue;
                 }
 
-                // SA2発動アクション処理
                 if (item.name.startsWith("SA2発動")) {
                     stepsHTML += `
                         <tr class="border-b border-gray-100 py-1 bg-purple-50/50">
@@ -992,7 +950,6 @@ HTML_TEMPLATE = """
                     continue;
                 }
 
-                // --- SA2 2〜5打目の特殊処理 (補正を一切計算・加算せず、1打目の補正をそのまま適用) ---
                 if (["SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目"].includes(item.name)) {
                     let finalCorr = sa2SavedCorr;
                     let baseDamage = item.custom_damage !== undefined ? item.custom_damage : move.damage;
@@ -1016,7 +973,7 @@ HTML_TEMPLATE = """
 
                 let baseCorr = currentCorr;
                 let decrease = 0;
-                if (actualHitIndex > 0) { // 実際のコンボ打撃順で判定！
+                if (actualHitIndex > 0) {
                     const firstActualMove = currentMoves.find(m => m.name !== "DR" && m.name !== "インパクト壁やられ" && m.name !== "ジャストパリィ" && m.name !== "ドライブ回復1P" && m.name !== "弱サンフレア" && m.name !== "弱ソーラーフレア" && !m.name.startsWith("SA2発動"));
                     const startCorrection = firstActualMove ? MOVES_DB[firstActualMove.name].start_correction : 0;
                     const firstMoveType = firstActualMove ? (MOVES_DB[firstActualMove.name].type || "L") : "L";
@@ -1032,24 +989,21 @@ HTML_TEMPLATE = """
                         decrease = (startCorrection > 0) ? 10 : 20;
                     }
                     
-                    // コンボ補正の適用 (Hit 3以降の最初の減少ステップのみ消費して適用)
                     if (nextReductionBonus > 0 && actualHitIndex >= 2) {
                         if (actualHitIndex === 2) {
                             decrease = nextReductionBonus + (startCorrection > 0 ? 0 : 10);
                         } else {
                             decrease = nextReductionBonus;
                         }
-                        nextReductionBonus = 0; // 消費したためクリア
+                        nextReductionBonus = 0;
                     }
 
-                    // SA2の2〜5打目は補正減少を行わない
                     if (["SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目"].includes(item.name)) {
                         decrease = 0;
                     }
 
                     baseCorr = Math.max(10, currentCorr - decrease);
                     
-                    // 即時補正の永続適用 (SA2の2〜5打目は除外)
                     if (actualHitIndex > 0) {
                         let imm = 0;
                         if (["SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目"].includes(item.name)) {
@@ -1108,7 +1062,6 @@ HTML_TEMPLATE = """
 
                 damage += hitDamage;
                 
-                // 新しいコンボ補正の検出
                 const newBonus = move.combo_correction || 0;
                 if (newBonus > 0) {
                     nextReductionBonus = newBonus;
@@ -1127,7 +1080,6 @@ HTML_TEMPLATE = """
                     </tr>
                 `;
 
-                // SA2の一発目の補正を記録保存
                 if (item.name === "SA2_1打目") {
                     sa2SavedCorr = finalCorr;
                 }
@@ -1150,7 +1102,6 @@ HTML_TEMPLATE = """
 
             document.getElementById('live-calculation-details').innerHTML = stepsHTML;
 
-            // ボタンロック（不整合・順次リソース不足制御）
             const addButtons = document.querySelectorAll('.btn-move-add');
             addButtons.forEach(btn => {
                 const moveName = btn.getAttribute('data-move-name');
@@ -1163,7 +1114,6 @@ HTML_TEMPLATE = """
                     isLocked = true;
                 }
 
-                // SA2打目ロック判定 (対応発動演出の履歴が無いと打てないように制限)
                 if (moveName.startsWith("SA2_")) {
                     const hasSA2_Activation = currentMoves.some(m => m.name.startsWith("SA2発動"));
                     if (!hasSA2_Activation) {
@@ -1179,7 +1129,6 @@ HTML_TEMPLATE = """
                     }
                 }
 
-                // 順次シミュレーションを行い、この技を追加した場合に不整合(isInvalid)が発生しないか検証
                 const testCombo = [...currentMoves, { name: moveName, cdr: false }];
                 const testSim = simulateResourcesSequentially(testCombo, driveStart, symbolStart);
                 if (testSim.isInvalid) {
@@ -1194,9 +1143,13 @@ HTML_TEMPLATE = """
                 }
             });
 
-            // タイムライン構築によるゲージおよびシンボルの実際の消費値を表示
             document.getElementById('preview-damage').innerText = damage;
-            document.getElementById('preview-resources').innerText = `${driveCost}P / 🔴 ${symbolCost}個`;
+            
+            let resourceText = `${driveStart}P ➔ ${Math.max(0, driveRemain)}P | 🔴 ${symbolStart} ➔ ${Math.max(0, symbolRemain)}個`;
+            if (driveRemain <= 0 && currentMoves.length > 0) {
+                resourceText = `🔴 バーンアウト！ | 🔴 ${symbolStart} ➔ ${Math.max(0, symbolRemain)}個`;
+            }
+            document.getElementById('preview-resources').innerText = resourceText;
 
             renderTimeline(driveRemain);
             document.getElementById('moves-json').value = JSON.stringify(currentMoves);
@@ -1255,6 +1208,9 @@ HTML_TEMPLATE = """
             document.getElementById('combo-id').value = id;
             document.getElementById('input-title').value = title;
             document.getElementById('input-start-type').value = startType;
+            document.getElementById('input-drive-start').value = driveStart;
+            document.getElementById('input-symbol-start').value = symbolStart;
+            document.getElementById('input-notes').value = notes;
 
             currentMoves = JSON.parse(rawMovesJson);
             currentMoves.forEach(m => {
@@ -1293,7 +1249,7 @@ HTML_TEMPLATE = """
 @app.route('/', methods=['GET'])
 def index():
     global db_init_error
-    # データベース接続エラーがある場合は、エラー詳細を画面に表示
+    # もし重複ではない致命的なデータベースエラーが発生している場合は、エラー画面を表示
     if db_init_error:
         return f"""
         <div style="padding: 20px; font-family: sans-serif; background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 8px; max-width: 800px; margin: 40px auto;">
@@ -1304,35 +1260,54 @@ def index():
         </div>
         """, 500
 
-    data = load_data()
-    combos = data.get('combos', [])
-    
     drive_filter = request.args.get('drive_filter')
     symbol_filter = request.args.get('symbol_filter')
     search_query = request.args.get('search')
     
-    filtered_combos = []
-    for c in combos:
+    # データベースから全レコードを取得（新しい順）
+    try:
+        combos_db = Combo.query.order_by(Combo.id.desc()).all()
+    except Exception as e:
+        combos_db = []
+        print(f"Database error: {e}")
+
+    combos = []
+    for c in combos_db:
+        combo_dict = {
+            "id": c.id,
+            "title": c.title,
+            "start_type": c.start_type,
+            "drive_start": c.drive_start,
+            "drive_cost": c.drive_cost,
+            "symbol_start": c.symbol_start,
+            "symbol_cost": c.symbol_cost,
+            "notes": c.notes,
+            "moves": c.moves,
+            "raw_moves_json": json.dumps(c.moves),
+            "damage": c.damage
+        }
+
+        # フィルター処理
         if drive_filter and drive_filter != 'all':
-            if c.get('drive_cost', 0) != int(drive_filter):
+            if combo_dict['drive_start'] != int(drive_filter):
                 continue
         if symbol_filter and symbol_filter != 'all':
-            if c.get('symbol_cost', 0) != int(symbol_filter):
+            if combo_dict['symbol_start'] != int(symbol_filter):
                 continue
         if search_query:
             q = search_query.lower()
-            in_title = q in c.get('title', '').lower()
-            in_notes = q in c.get('notes', '').lower()
+            in_title = q in combo_dict['title'].lower()
+            in_notes = q in (combo_dict['notes'] or '').lower()
             if not (in_title or in_notes):
                 continue
                 
-        # 画面描画用に動的に詳細ステップ計算をバインド
-        c['steps'] = py_get_combo_details(c['moves'], c['start_type'])
-        filtered_combos.append(c)
+        # 画面描画用に動的な詳細ステップ計算をバインド
+        combo_dict['steps'] = py_get_combo_details(combo_dict['moves'], combo_dict['start_type'])
+        combos.append(combo_dict)
         
     return render_template_string(
         HTML_TEMPLATE, 
-        combos=filtered_combos, 
+        combos=combos, 
         drive_filter=drive_filter, 
         symbol_filter=symbol_filter, 
         search_query=search_query,
@@ -1341,77 +1316,81 @@ def index():
 
 @app.route('/add', methods=['POST'])
 def add():
-    data = load_data()
     moves = json.loads(request.form.get('moves_json', '[]'))
     start_type = request.form.get('start_type', 'normal')
+    drive_start = int(request.form.get('drive_start', 6))
+    symbol_start = int(request.form.get('symbol_start', 0))
     
-    # 常に初期リソース最大値として計算
-    drive_start = 6
-    symbol_start = 4
-    
-    drive_remain, symbol_remain, is_invalid = py_simulate_resources_sequentially(moves, drive_start, symbol_start)
+    drive_remain, symbol_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start)
     drive_cost = drive_start - drive_remain
     symbol_cost = symbol_start - symbol_remain
-    
     damage = py_calculate_damage(moves, start_type)
     
-    new_combo = {
-        "id": str(int(time.time() * 1000)),
-        "title": request.form.get('title', '無題'),
-        "start_type": start_type,
-        "drive_start": drive_start,
-        "drive_cost": drive_cost,
-        "symbol_start": symbol_start,
-        "symbol_cost": symbol_cost,
-        "notes": request.form.get('notes', ''),
-        "moves": moves,
-        "raw_moves_json": json.dumps(moves),
-        "damage": damage
-    }
+    new_combo = Combo(
+        id=str(int(time.time() * 1000)),
+        title=request.form.get('title', '無題'),
+        start_type=start_type,
+        drive_start=drive_start,
+        drive_cost=drive_cost,
+        symbol_start=symbol_start,
+        symbol_cost=symbol_cost,
+        notes=request.form.get('notes', ''),
+        moves=moves,
+        damage=damage
+    )
     
-    data['combos'].append(new_combo)
-    save_data(data)
+    try:
+        db.session.add(new_combo)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Save error: {e}")
+        
     return redirect(url_for('index'))
 
 @app.route('/edit', methods=['POST'])
 def edit():
-    data = load_data()
     combo_id = request.form.get('combo_id')
     moves = json.loads(request.form.get('moves_json', '[]'))
     start_type = request.form.get('start_type', 'normal')
+    drive_start = int(request.form.get('drive_start', 6))
+    symbol_start = int(request.form.get('symbol_start', 0))
     
-    # 常に初期リソース最大値として計算
-    drive_start = 6
-    symbol_start = 4
-    
-    drive_remain, symbol_remain, is_invalid = py_simulate_resources_sequentially(moves, drive_start, symbol_start)
+    drive_remain, symbol_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start)
     drive_cost = drive_start - drive_remain
     symbol_cost = symbol_start - symbol_remain
-    
     damage = py_calculate_damage(moves, start_type)
     
-    for combo in data['combos']:
-        if combo['id'] == combo_id:
-            combo['title'] = request.form.get('title', '無題')
-            combo['start_type'] = start_type
-            combo['drive_start'] = drive_start
-            combo['drive_cost'] = drive_cost
-            combo['symbol_start'] = symbol_start
-            combo['symbol_cost'] = symbol_cost
-            combo['notes'] = request.form.get('notes', '')
-            combo['moves'] = moves
-            combo['raw_moves_json'] = json.dumps(moves)
-            combo['damage'] = damage
-            break
+    combo = Combo.query.get(combo_id)
+    if combo:
+        combo.title = request.form.get('title', '無題')
+        combo.start_type = start_type
+        combo.drive_start = drive_start
+        combo.drive_cost = drive_cost
+        combo.symbol_start = symbol_start
+        combo.symbol_cost = symbol_cost
+        combo.notes = request.form.get('notes', '')
+        combo.moves = moves
+        combo.damage = damage
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Edit error: {e}")
             
-    save_data(data)
     return redirect(url_for('index'))
 
 @app.route('/delete/<combo_id>', methods=['POST'])
 def delete(combo_id):
-    data = load_data()
-    data['combos'] = [c for c in data['combos'] if c['id'] != combo_id]
-    save_data(data)
+    combo = Combo.query.get(combo_id)
+    if combo:
+        try:
+            db.session.delete(combo)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Delete error: {e}")
+            
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
