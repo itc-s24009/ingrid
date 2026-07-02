@@ -32,11 +32,13 @@ class Combo(db.Model):
     drive_cost = db.Column(db.Integer, nullable=False)
     symbol_start = db.Column(db.Integer, nullable=False)
     symbol_cost = db.Column(db.Integer, nullable=False)
+    sa_start = db.Column(db.Integer, nullable=False, default=3)  # 初期SAゲージ本数
+    sa_cost = db.Column(db.Integer, nullable=False, default=0)    # 消費SAゲージ本数
     notes = db.Column(db.Text)
     moves = db.Column(db.JSON, nullable=False)  # JSON型としてリストを格納
     damage = db.Column(db.Integer, nullable=False)
 
-# テーブルの遅延作成および競合エラーのハンドリング
+# テーブルの遅延作成および既存データベースへの自動カラム追加
 _db_initialized = False
 db_init_error = None
 
@@ -46,6 +48,20 @@ def create_tables():
     if not _db_initialized:
         try:
             db.create_all()
+            
+            # Neonなどの既存テーブルに sa_start / sa_cost がない場合の自動追加クエリ
+            with db.engine.connect() as conn:
+                try:
+                    conn.execute(db.text("ALTER TABLE combos ADD COLUMN sa_start INTEGER DEFAULT 3"))
+                    conn.commit()
+                except Exception:
+                    pass
+                try:
+                    conn.execute(db.text("ALTER TABLE combos ADD COLUMN sa_cost INTEGER DEFAULT 0"))
+                    conn.commit()
+                except Exception:
+                    pass
+                    
             _db_initialized = True
             db_init_error = None
         except Exception as e:
@@ -117,34 +133,35 @@ MOVES_DB = {
     "前サンパニッシュ": {"damage": 1000, "start_correction": 0, "cdr": False, "type": "S"},
     "上サンパニッシュ": {"damage": 1100, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA1
+    # SA1 (最低保証30% / 即時補正20%)
     "SA1_Lv0": {"damage": 1900, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv1": {"damage": 2300, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv2": {"damage": 2700, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
 
-    # SA2発動演出
+    # SA2発動演出 (0ダメージ・システムユーティリティ扱い)
     "SA2発動_Lv0": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv1": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv2": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA2個別分割ヒット
+    # SA2個別分割ヒット (最低保証40% / 即時補正20% / combo_correctionにより100%➔60%始動を実現)
     "SA2_1打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "combo_correction": 30, "type": "S"},
     "SA2_2打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_3打目": {"damage": 600, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_4打目": {"damage": 800, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_5打目": {"damage": 1000, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
 
-    # SA3 / CA
+    # SA3 / CA (最低保証50% / 即時補正20%)
     "SA3": {"damage": 4000, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"},
     "CA": {"damage": 4500, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"}
 }
 
 # ==============================================================================
-# リソース計算ロジック
+# リソース計算ロジック (SAゲージ管理、SA1のシンボル/SA消費ルールを追加)
 # ==============================================================================
-def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
+def py_simulate_resources_sequentially(moves, start_drive, start_symbols, start_sa):
     drive_curr = start_drive
     symbol_curr = start_symbols
+    sa_curr = start_sa
     is_invalid = False
     
     for m in moves:
@@ -156,6 +173,46 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
             symbol_curr = min(4, symbol_curr + 1)
             continue
             
+        # --- SA1 の処理 ---
+        if name.startswith("SA1_"):
+            if sa_curr < 1:
+                is_invalid = True
+            sa_curr -= 1
+            
+            # レベル別のシンボル消費
+            required_symbols = 0
+            if "Lv1" in name: required_symbols = 1
+            elif "Lv2" in name: required_symbols = 2
+            
+            if symbol_curr < required_symbols:
+                is_invalid = True
+            symbol_curr -= required_symbols
+            continue
+            
+        # --- SA2発動の処理 ---
+        if name.startswith("SA2発動_"):
+            if sa_curr < 2:
+                is_invalid = True
+            sa_curr -= 2
+            
+            if "Lv1" in name:
+                if symbol_curr < 1:
+                    is_invalid = True
+                symbol_curr -= 1
+            elif "Lv2" in name:
+                if symbol_curr < 2:
+                    is_invalid = True
+                symbol_curr -= 2
+            continue
+            
+        # --- SA3 / CA の処理 ---
+        if name in ["SA3", "CA"]:
+            if sa_curr < 3:
+                is_invalid = True
+            sa_curr -= 3
+            continue
+            
+        # --- その他の技・ドライブ消費 ---
         if m.get('cdr', False):
             if drive_curr <= 0:
                 is_invalid = True
@@ -168,17 +225,6 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
             if drive_curr <= 0:
                 is_invalid = True
             drive_curr -= 2
-            
-        if name.startswith("SA2発動"):
-            if "Lv1" in name:
-                if symbol_curr < 1:
-                    is_invalid = True
-                symbol_curr -= 1
-            elif "Lv2" in name:
-                if symbol_curr < 2:
-                    is_invalid = True
-                symbol_curr -= 2
-            continue
             
         if ("サンフレア" in name or "ソーラーフレア" in name) and not name.startswith("弱"):
             level = 0
@@ -219,7 +265,11 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols):
         if drive_curr < 0:
             drive_curr = 0
             
-    return drive_curr, symbol_curr, is_invalid
+    if sa_curr < 0:
+        is_invalid = True
+        sa_curr = 0
+            
+    return drive_curr, symbol_curr, sa_curr, is_invalid
 
 # ==============================================================================
 # ダメージ計算ロジック
@@ -488,7 +538,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (グリッドレイアウトによるカテゴリ整理)
+# HTMLテンプレート (使用SAゲージ対応、フィルター機能拡張)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -531,28 +581,36 @@ HTML_TEMPLATE = """
                         </div>
 
                         <!-- 始動属性・使用リソースの設定 -->
-                        <div class="grid grid-cols-3 gap-2">
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">始動状態</label>
-                                <select name="start_type" id="input-start-type" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
-                                    <option value="normal">通常ヒット</option>
-                                    <option value="counter">カウンター (+2F)</option>
-                                    <option value="punish">パニカン (+4F)</option>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div class="col-span-1">
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5 truncate">始動状態</label>
+                                <select name="start_type" id="input-start-type" class="w-full px-1.5 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
+                                    <option value="normal">通常</option>
+                                    <option value="counter">カウンター</option>
+                                    <option value="punish">パニカン</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">使用可能ゲージ</label>
-                                <select name="drive_start" id="input-drive-start" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5 truncate">使用可能ゲージ</label>
+                                <select name="drive_start" id="input-drive-start" class="w-full px-1 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     {% for g in range(6, -1, -1) %}
                                     <option value="{{ g }}">{{ g }}P</option>
                                     {% endfor %}
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5">使用可能シンボル</label>
-                                <select name="symbol_start" id="input-symbol-start" class="w-full px-2 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5 truncate">使用可能シンボル</label>
+                                <select name="symbol_start" id="input-symbol-start" class="w-full px-1 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
                                     {% for s in range(0, 5) %}
                                     <option value="{{ s }}">{{ s }}個</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-600 mb-0.5 truncate">使用可能SA</label>
+                                <select name="sa_start" id="input-sa-start" class="w-full px-1 py-1.5 border rounded-lg text-xs" onchange="updateLivePreview()">
+                                    {% for sa in range(3, -1, -1) %}
+                                    <option value="{{ sa }}">{{ sa }}本</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -610,11 +668,11 @@ HTML_TEMPLATE = """
                                             <button type="button" data-move-name="中段" onclick="addMove('中段')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中段</button>
                                             <button type="button" data-move-name="前強P" onclick="addMove('前強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">前強P</button>
                                             
-                                            <button type="button" data-move-name="引中Kタゲコン1" onclick="addMove('引中Kタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引中Kタゲ1</button>
-                                            <button type="button" data-move-name="引中Kタゲコン2" onclick="addMove('引中Kタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引中Kタゲ2</button>
+                                            <button type="button" data-move-name="引中Kタゲコン1" onclick="addMove('引中Kタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引中Kタゲ1</button>
+                                            <button type="button" data-move-name="引中Kタゲコン2" onclick="addMove('引중Kタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引中Kタゲ2</button>
                                             
-                                            <button type="button" data-move-name="引強Pタゲコン1" onclick="addMove('引強Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引強Pタゲ1</button>
-                                            <button type="button" data-move-name="引強Pタゲコン2" onclick="addMove('引強Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引強Pタゲ2</button>
+                                            <button type="button" data-move-name="引強Pタゲコン1" onclick="addMove('引強Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引強Pタゲ1</button>
+                                            <button type="button" data-move-name="引強Pタゲコン2" onclick="addMove('引強Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引強Pタゲ2</button>
                                         </div>
                                     </div>
                                 </div>
@@ -701,7 +759,7 @@ HTML_TEMPLATE = """
                                 <div class="p-3 space-y-3.5 bg-gray-50/50">
                                     <!-- SA1 -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA1 (サンセイバー)</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA1 (サンセイバー) ※Lv1=消費1 / Lv2=消費2</span>
                                         <div class="grid grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="SA1_Lv0" onclick="addMove('SA1_Lv0')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv0</button>
                                             <button type="button" data-move-name="SA1_Lv1" onclick="addMove('SA1_Lv1')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv1</button>
@@ -802,6 +860,12 @@ HTML_TEMPLATE = """
                             <option value="{{ s }}" {% if symbol_filter == s|string %}selected{% endif %}>使用可能シンボル: {{ s }}個</option>
                             {% endfor %}
                         </select>
+                        <select name="sa_filter" class="px-2 py-1 border rounded text-xs">
+                            <option value="all" {% if sa_filter == 'all' or not sa_filter %}selected{% endif %}>使用SA: すべて</option>
+                            {% for sa in range(3, -1, -1) %}
+                            <option value="{{ sa }}" {% if sa_filter == sa|string %}selected{% endif %}>使用可能SA: {{ sa }}本</option>
+                            {% endfor %}
+                        </select>
                         <input type="text" name="search" class="flex-1 px-3 py-1 border rounded text-xs" placeholder="検索" value="{{ search_query or '' }}">
                         <button type="submit" class="px-3 py-1 bg-gray-800 text-white rounded text-xs font-bold">検索</button>
                     </form>
@@ -816,10 +880,11 @@ HTML_TEMPLATE = """
                         {% for combo in combos %}
                         {% set drive_remain = combo.drive_start - combo.drive_cost %}
                         {% set symbol_remain = combo.symbol_start - combo.symbol_cost %}
+                        {% set sa_remain = combo.sa_start - combo.sa_cost %}
                         {% set is_burnout_combo = (combo.drive_start == 6 and drive_remain <= 0) %}
                         <div class="bg-white rounded-xl shadow p-5 border border-gray-200 relative">
                             <div class="absolute top-4 right-4 flex gap-1">
-                                <button onclick="editCombo('{{ combo.id }}', '{{ combo.title|e }}', '{{ combo.start_type }}', '{{ combo.drive_start }}', '{{ combo.symbol_start }}', '{{ combo.notes|e }}', '{{ combo.raw_moves_json|e }}')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded">編集</button>
+                                <button onclick="editCombo('{{ combo.id }}', '{{ combo.title|e }}', '{{ combo.start_type }}', '{{ combo.drive_start }}', '{{ combo.symbol_start }}', '{{ combo.sa_start }}', '{{ combo.notes|e }}', '{{ combo.raw_moves_json|e }}')" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded">編集</button>
                                 <form action="/delete/{{ combo.id }}" method="post" onsubmit="return confirm('削除しますか？')" class="inline">
                                     <button type="submit" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold rounded">削除</button>
                                 </form>
@@ -841,6 +906,9 @@ HTML_TEMPLATE = """
                                 </span>
                                 <span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded">
                                     🔴 使用シンボル: {{ combo.symbol_cost }}個 (残り {{ symbol_remain if symbol_remain >= 0 else 0 }}個)
+                                </span>
+                                <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-bold rounded">
+                                    🔮 使用SAゲージ: {{ combo.sa_cost }}本 (残り {{ sa_remain if sa_remain >= 0 else 0 }}本)
                                 </span>
                             </div>
 
@@ -907,7 +975,7 @@ HTML_TEMPLATE = """
         let currentMoves = [];
 
         function addMove(name) {
-            if ((name === "インパクト壁やられ" || name === "ジャストパリィ") && currentMoves.length > 0) {
+            if ((name === "インパクト壁やわれ" || name === "ジャストパリィ") && currentMoves.length > 0) {
                 return;
             }
             const moveData = MOVES_DB[name];
@@ -931,9 +999,11 @@ HTML_TEMPLATE = """
             updateLivePreview();
         }
 
-        function simulateResourcesSequentially(moves, startDrive, startSymbols) {
+        // SA1・SA2発動・SA3のSAゲージ・シンボル消費ルールを盛り込んだリソースシミュレータ
+        function simulateResourcesSequentially(moves, startDrive, startSymbols, startSA) {
             let driveCurr = startDrive;
             let symbolCurr = startSymbols;
+            let saCurr = startSA;
             let isInvalid = false;
             
             for (let i = 0; i < moves.length; i++) {
@@ -949,6 +1019,43 @@ HTML_TEMPLATE = """
                     continue;
                 }
                 
+                // --- SA1 (1ゲージ消費 ＆ Lv別シンボル消費) ---
+                if (name.startsWith("SA1_")) {
+                    if (saCurr < 1) isInvalid = true;
+                    saCurr -= 1;
+                    
+                    let requiredSymbol = 0;
+                    if (name.includes("Lv1")) requiredSymbol = 1;
+                    if (name.includes("Lv2")) requiredSymbol = 2;
+                    
+                    if (symbolCurr < requiredSymbol) isInvalid = true;
+                    symbolCurr -= requiredSymbol;
+                    continue;
+                }
+                
+                // --- SA2発動演出 (2ゲージ消費 ＆ Lv別シンボル消費) ---
+                if (name.startsWith("SA2発動")) {
+                    if (saCurr < 2) isInvalid = true;
+                    saCurr -= 2;
+                    
+                    if (name.includes("Lv1")) {
+                        if (symbolCurr < 1) isInvalid = true;
+                        symbolCurr -= 1;
+                    } else if (name.includes("Lv2")) {
+                        if (symbolCurr < 2) isInvalid = true;
+                        symbolCurr -= 2;
+                    }
+                    continue;
+                }
+                
+                // --- SA3 / CA (3ゲージ消費) ---
+                if (name === "SA3" || name === "CA") {
+                    if (saCurr < 3) isInvalid = true;
+                    saCurr -= 3;
+                    continue;
+                }
+                
+                // ドライブ・他必殺技
                 if (item.cdr) {
                     if (driveCurr <= 0) isInvalid = true;
                     driveCurr -= 3;
@@ -960,17 +1067,6 @@ HTML_TEMPLATE = """
                 if (name.includes("OD")) {
                     if (driveCurr <= 0) isInvalid = true;
                     driveCurr -= 2;
-                }
-                
-                if (name.startsWith("SA2発動")) {
-                    if (name.includes("Lv1")) {
-                        if (symbolCurr < 1) isInvalid = true;
-                        symbolCurr -= 1;
-                    } else if (name.includes("Lv2")) {
-                        if (symbolCurr < 2) isInvalid = true;
-                        symbolCurr -= 2;
-                    }
-                    continue;
                 }
                 
                 if ((name.includes("サンフレア") || name.includes("ソーラーフレア")) && !name.startsWith("弱")) {
@@ -1015,13 +1111,19 @@ HTML_TEMPLATE = """
                 }
             }
             
-            return { driveRemain: driveCurr, symbolRemain: symbolCurr, isInvalid };
+            if (saCurr < 0) {
+                isInvalid = true;
+                saCurr = 0;
+            }
+            
+            return { driveRemain: driveCurr, symbolRemain: symbolCurr, saRemain: saCurr, isInvalid };
         }
 
         function updateLivePreview() {
             const startType = document.getElementById('input-start-type').value;
             const driveStart = parseInt(document.getElementById('input-drive-start').value) || 0;
             const symbolStart = parseInt(document.getElementById('input-symbol-start').value) || 0;
+            const saStart = parseInt(document.getElementById('input-sa-start').value) || 0;
 
             // 編集中の入力フォーカス追跡処理
             const activeEl = document.activeElement;
@@ -1037,9 +1139,10 @@ HTML_TEMPLATE = """
             let actualHitIndex = 0;
             let sa2SavedCorr = 100;
 
-            const res = simulateResourcesSequentially(currentMoves, driveStart, symbolStart);
+            const res = simulateResourcesSequentially(currentMoves, driveStart, symbolStart, saStart);
             const driveRemain = res.driveRemain;
             const symbolRemain = res.symbolRemain;
+            const saRemain = res.saRemain;
 
             const firstMoveName = currentMoves.length > 0 ? currentMoves[0].name : "";
             const impactWallActive = (firstMoveName === "インパクト壁やられ");
@@ -1280,7 +1383,7 @@ HTML_TEMPLATE = """
                     isLocked = true;
                 }
 
-                // SA2打目ロック判定
+                // SA2打撃部分のロック判定
                 if (moveName.startsWith("SA2_")) {
                     const hasSA2_Activation = currentMoves.some(m => m.name.startsWith("SA2発動"));
                     if (!hasSA2_Activation) {
@@ -1296,7 +1399,7 @@ HTML_TEMPLATE = """
                     }
                 }
 
-                // === ターゲットコンボ（タゲコン2）のリアルタイム派生制限 ===
+                // ターゲットコンボ（タゲコン2）のリアルタイム派生制限
                 if (moveName === "中Pタゲコン2") {
                     const lastMove = currentMoves.length > 0 ? currentMoves[currentMoves.length - 1] : null;
                     if (!lastMove || lastMove.name !== "中Pタゲコン1") {
@@ -1316,9 +1419,9 @@ HTML_TEMPLATE = """
                     }
                 }
 
-                // 順次シミュレーション
+                // 先読みシミュレーションで、追加したときにリソース制限（SA含む）を満たしているかテスト
                 const testCombo = [...currentMoves, { name: moveName, cdr: false }];
-                const testSim = simulateResourcesSequentially(testCombo, driveStart, symbolStart);
+                const testSim = simulateResourcesSequentially(testCombo, driveStart, symbolStart, saStart);
                 if (testSim.isInvalid) {
                     isLocked = true;
                 }
@@ -1333,15 +1436,15 @@ HTML_TEMPLATE = """
 
             document.getElementById('preview-damage').innerText = damage;
             
-            // 使用量（消費量）の計算
+            // 各種使用量の計算
             const driveCost = driveStart - driveRemain;
             const symbolCost = symbolStart - symbolRemain;
+            const saCost = saStart - saRemain;
             
-            let resourceText = `使用ゲージ: ${driveCost}P (残 ${Math.max(0, driveRemain)}P) | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個)`;
+            let resourceText = `使用ゲージ: ${driveCost}P (残 ${Math.max(0, driveRemain)}P) | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個) | 🔮 使用SA: ${saCost}本 (残 ${saRemain}本)`;
             
-            // ゲージが初期最大値「6P」から「0P（以下）」になった場合のみ、バーンアウト！を表記
             if (driveStart === 6 && driveRemain <= 0 && currentMoves.length > 0) {
-                resourceText = `🔴 バーンアウト！ | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個)`;
+                resourceText = `🔴 バーンアウト！ | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個) | 🔮 使用SA: ${saCost}本 (残 ${saRemain}本)`;
             }
             document.getElementById('preview-resources').innerText = resourceText;
 
@@ -1394,7 +1497,7 @@ HTML_TEMPLATE = """
                     cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
+                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やわれ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
                     ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
                          <span class="text-[9px] text-gray-500 font-bold">単:</span>
                          <input type="number" data-index="${index}" oninput="updateCustomDamage(${index}, this.value)" class="damage-input w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
@@ -1411,13 +1514,14 @@ HTML_TEMPLATE = """
             });
         }
 
-        function editCombo(id, title, startType, driveStart, symbolStart, notes, rawMovesJson) {
+        function editCombo(id, title, startType, driveStart, symbolStart, saStart, notes, rawMovesJson) {
             document.getElementById('form-title').innerText = "📝 コンボを編集";
             document.getElementById('combo-id').value = id;
             document.getElementById('input-title').value = title;
             document.getElementById('input-start-type').value = startType;
             document.getElementById('input-drive-start').value = driveStart;
             document.getElementById('input-symbol-start').value = symbolStart;
+            document.getElementById('input-sa-start').value = saStart;
             document.getElementById('input-notes').value = notes;
 
             currentMoves = JSON.parse(rawMovesJson);
@@ -1457,7 +1561,7 @@ HTML_TEMPLATE = """
 """
 
 # ==============================================================================
-# サーバールーティング
+# サーバールーティング (SAゲージの保存・編集・フィルタリングの各ロジックを統合)
 # ==============================================================================
 @app.route('/', methods=['GET'])
 def index():
@@ -1474,6 +1578,7 @@ def index():
 
     drive_filter = request.args.get('drive_filter')
     symbol_filter = request.args.get('symbol_filter')
+    sa_filter = request.args.get('sa_filter')
     search_query = request.args.get('search')
     
     # データベースから全レコードを取得
@@ -1485,6 +1590,12 @@ def index():
 
     combos = []
     for c in combos_db:
+        # 新カラムの後方互換フォールバック
+        sa_start_val = getattr(c, 'sa_start', 3)
+        sa_cost_val = getattr(c, 'sa_cost', 0)
+        if sa_start_val is None: sa_start_val = 3
+        if sa_cost_val is None: sa_cost_val = 0
+
         combo_dict = {
             "id": c.id,
             "title": c.title,
@@ -1493,6 +1604,8 @@ def index():
             "drive_cost": c.drive_cost,
             "symbol_start": c.symbol_start,
             "symbol_cost": c.symbol_cost,
+            "sa_start": sa_start_val,
+            "sa_cost": sa_cost_val,
             "notes": c.notes,
             "moves": c.moves,
             "raw_moves_json": json.dumps(c.moves),
@@ -1505,6 +1618,9 @@ def index():
                 continue
         if symbol_filter and symbol_filter != 'all':
             if combo_dict['symbol_start'] != int(symbol_filter):
+                continue
+        if sa_filter and sa_filter != 'all':
+            if combo_dict['sa_start'] != int(sa_filter):
                 continue
         if search_query:
             q = search_query.lower()
@@ -1522,6 +1638,7 @@ def index():
         combos=combos, 
         drive_filter=drive_filter, 
         symbol_filter=symbol_filter, 
+        sa_filter=sa_filter,
         search_query=search_query,
         moves_db_json=json.dumps(MOVES_DB)
     )
@@ -1532,10 +1649,12 @@ def add():
     start_type = request.form.get('start_type', 'normal')
     drive_start = int(request.form.get('drive_start', 6))
     symbol_start = int(request.form.get('symbol_start', 0))
+    sa_start = int(request.form.get('sa_start', 3))
     
-    drive_remain, symbol_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start)
+    drive_remain, symbol_remain, sa_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start, sa_start)
     drive_cost = drive_start - drive_remain
     symbol_cost = symbol_start - symbol_remain
+    sa_cost = sa_start - sa_remain
     damage = py_calculate_damage(moves, start_type)
     
     new_combo = Combo(
@@ -1546,6 +1665,8 @@ def add():
         drive_cost=drive_cost,
         symbol_start=symbol_start,
         symbol_cost=symbol_cost,
+        sa_start=sa_start,
+        sa_cost=sa_cost,
         notes=request.form.get('notes', ''),
         moves=moves,
         damage=damage
@@ -1567,10 +1688,12 @@ def edit():
     start_type = request.form.get('start_type', 'normal')
     drive_start = int(request.form.get('drive_start', 6))
     symbol_start = int(request.form.get('symbol_start', 0))
+    sa_start = int(request.form.get('sa_start', 3))
     
-    drive_remain, symbol_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start)
+    drive_remain, symbol_remain, sa_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start, sa_start)
     drive_cost = drive_start - drive_remain
     symbol_cost = symbol_start - symbol_remain
+    sa_cost = sa_start - sa_remain
     damage = py_calculate_damage(moves, start_type)
     
     combo = Combo.query.get(combo_id)
@@ -1581,6 +1704,8 @@ def edit():
         combo.drive_cost = drive_cost
         combo.symbol_start = symbol_start
         combo.symbol_cost = symbol_cost
+        combo.sa_start = sa_start
+        combo.sa_cost = sa_cost
         combo.notes = request.form.get('notes', '')
         combo.moves = moves
         combo.damage = damage
