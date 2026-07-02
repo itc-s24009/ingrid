@@ -2,10 +2,55 @@ import os
 import json
 import time
 from flask import Flask, request, render_template_string, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-DATA_FILE = "combos_calculated.json"
 
+# ==============================================================================
+# データベース接続設定 (Vercel & Neon用 - pg8000によるPure Python接続)
+# ==============================================================================
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Vercel環境でCライブラリ依存エラーを避けるため、Pure Pythonドライバ(pg8000)を使用
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+pg8000://", 1)
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+pg8000://", 1)
+else:
+    # ローカル検証用のフォールバック (SQLite)
+    database_url = "sqlite:///local_combos.db"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+# コンボ保存用データベースモデル
+class Combo(db.Model):
+    __tablename__ = 'combos'
+    id = db.Column(db.String(50), primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    start_type = db.Column(db.String(50), nullable=False)
+    drive_start = db.Column(db.Integer, nullable=False)
+    drive_cost = db.Column(db.Integer, nullable=False)
+    symbol_start = db.Column(db.Integer, nullable=False)
+    symbol_cost = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text)
+    moves = db.Column(db.JSON, nullable=False)  # JSON型としてリストを格納
+    damage = db.Column(db.Integer, nullable=False)
+
+# 起動初期化時のタイムアウトを避けるため、初回リクエスト時に遅延作成する
+_db_initialized = False
+
+@app.before_request
+def create_tables():
+    global _db_initialized
+    if not _db_initialized:
+        try:
+            db.create_all()
+            _db_initialized = True
+        except Exception as e:
+            app.logger.error(f"Database initialization failed: {e}")
 # ==============================================================================
 # 正確なフレーム・CDR・補正仕様のデータベース (SA2補正をすべて1打目に固定 ＆ コンボ無視対応)
 # ==============================================================================
