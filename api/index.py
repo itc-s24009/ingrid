@@ -7,15 +7,13 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 
 # ==============================================================================
-# データベース接続設定 (Vercel & Neon用 - pg8000によるPure Python接続)
+# データベース接続設定 (Vercel & Neon用 - 標準psycopg2接続)
 # ==============================================================================
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
-    # Vercel環境でCライブラリ依存エラーを避けるため、Pure Pythonドライバ(pg8000)を使用
+    # 接続文字列のプロトコル名を標準的な postgresql:// に統一
     if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql+pg8000://", 1)
-    elif database_url.startswith("postgresql://"):
-        database_url = database_url.replace("postgresql://", "postgresql+pg8000://", 1)
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
 else:
     # ローカル検証用のフォールバック (SQLite)
     database_url = "sqlite:///local_combos.db"
@@ -39,18 +37,23 @@ class Combo(db.Model):
     moves = db.Column(db.JSON, nullable=False)  # JSON型としてリストを格納
     damage = db.Column(db.Integer, nullable=False)
 
-# 起動初期化時のタイムアウトを避けるため、初回リクエスト時に遅延作成する
+# エラー特定用のグローバル変数
 _db_initialized = False
+db_init_error = None
 
 @app.before_request
 def create_tables():
-    global _db_initialized
+    global _db_initialized, db_init_error
     if not _db_initialized:
         try:
             db.create_all()
             _db_initialized = True
+            db_init_error = None
         except Exception as e:
+            # エラーが発生した場合、メッセージを記録してクラッシュを抑止
+            db_init_error = str(e)
             app.logger.error(f"Database initialization failed: {e}")
+
 # ==============================================================================
 # 正確なフレーム・CDR・補正仕様のデータベース (SA2補正をすべて1打目に固定 ＆ コンボ無視対応)
 # ==============================================================================
@@ -1289,6 +1292,18 @@ HTML_TEMPLATE = """
 # ==============================================================================
 @app.route('/', methods=['GET'])
 def index():
+    global db_init_error
+    # データベース接続エラーがある場合は、エラー詳細を画面に表示
+    if db_init_error:
+        return f"""
+        <div style="padding: 20px; font-family: sans-serif; background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 8px; max-width: 800px; margin: 40px auto;">
+            <h3 style="margin-top: 0;">⚠️ データベース接続エラーが発生しました</h3>
+            <p>VercelからNeonデータベースへの接続設定、または接続処理中に以下の問題が発生しました：</p>
+            <pre style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #fed7d7; overflow-x: auto; font-family: monospace; font-size: 13px; color: #2d3748;">{db_init_error}</pre>
+            <p style="font-size: 14px; color: #4a5568;">対策：Vercelの設定画面で「DATABASE_URL」環境変数が正しく登録されているか確認してください。</p>
+        </div>
+        """, 500
+
     data = load_data()
     combos = data.get('combos', [])
     
