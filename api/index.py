@@ -156,7 +156,7 @@ MOVES_DB = {
 }
 
 # ==============================================================================
-# リソース計算ロジック (SAゲージ管理、SA1のシンボル/SA消費ルールを追加)
+# リソース計算ロジック
 # ==============================================================================
 def py_simulate_resources_sequentially(moves, start_drive, start_symbols, start_sa):
     drive_curr = start_drive
@@ -179,7 +179,6 @@ def py_simulate_resources_sequentially(moves, start_drive, start_symbols, start_
                 is_invalid = True
             sa_curr -= 1
             
-            # レベル別のシンボル消費
             required_symbols = 0
             if "Lv1" in name: required_symbols = 1
             elif "Lv2" in name: required_symbols = 2
@@ -284,7 +283,7 @@ def py_calculate_damage(moves, start_type, min_limit=10):
     actual_hit_index = 0
     sa2_saved_corr = 100
     
-    first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やられ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
+    first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やわれ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
     if not first_actual_name:
         return 0
     first_move = MOVES_DB.get(first_actual_name)
@@ -294,12 +293,12 @@ def py_calculate_damage(moves, start_type, min_limit=10):
     first_move_type = first_move.get('type', 'L')
     
     first_name = moves[0]['name'] if moves else ""
-    impact_wall_active = (first_name == "インパクト壁やられ")
+    impact_wall_active = (first_name == "インパクト壁やわれ")
     just_parry_active = (first_name == "ジャストパリィ")
     
     for i, item in enumerate(moves):
         name = item['name']
-        if name in ["DR", "インパクト壁やられ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] or name.startswith("SA2発動"):
+        if name in ["DR", "インパクト壁やわれ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] or name.startswith("SA2発動"):
             if name == "DR":
                 cdr_active = True
             continue
@@ -397,7 +396,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
     actual_hit_index = 0
     sa2_saved_corr = 100
     
-    first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やられ" , "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
+    first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やわれ" , "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
     if not first_actual_name:
         for item in moves:
             steps.append({
@@ -412,12 +411,12 @@ def py_get_combo_details(moves, start_type, min_limit=10):
     first_move_type = first_move.get('type', 'L')
     
     first_name = moves[0]['name'] if moves else ""
-    impact_wall_active = (first_name == "インパクト壁やられ")
+    impact_wall_active = (first_name == "インパクト壁やわれ")
     just_parry_active = (first_name == "ジャストパリィ")
     
     for i, item in enumerate(moves):
         name = item['name']
-        if name in ["DR", "インパクト壁やられ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] or name.startswith("SA2発動"):
+        if name in ["DR", "インパクト壁やわれ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] or name.startswith("SA2発動"):
             if name == "DR":
                 cdr_active = True
             steps.append({
@@ -538,7 +537,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (使用SAゲージ対応、フィルター機能拡張)
+# HTMLテンプレート (タブ切り替え機能を導入し、高さをコンパクトに抑制)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -616,17 +615,22 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- 技選択アコーディオンエリア (同系統がバラバラにならないようCSSグリッドで完全配置) -->
+                        <!-- 技選択エリア (スクロールや縦長を解消するため、タブUIを実装) -->
                         <div class="space-y-2">
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (クリックして開閉)</label>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (タブをクリックして切り替え)</label>
                             
-                            <!-- 通常技・特殊技 -->
-                            <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
-                                <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
-                                    <span>👊 通常技・特殊技</span>
-                                    <span class="text-[10px] text-gray-400">クリックで開閉</span>
-                                </summary>
-                                <div class="p-3 space-y-3.5 bg-gray-50/50">
+                            <!-- タブ切り替えヘッダー -->
+                            <div class="grid grid-cols-3 gap-1">
+                                <button type="button" id="btn-tab-normal" onclick="switchTab('tab-normal')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-blue-600 text-white transition active:scale-95">👊 通常・特殊</button>
+                                <button type="button" id="btn-tab-special" onclick="switchTab('tab-special')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔥 システム・必殺</button>
+                                <button type="button" id="btn-tab-sa" onclick="switchTab('tab-sa')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔮 SA(アーツ)</button>
+                            </div>
+
+                            <!-- タブ切り替えコンテンツエリア (高さを一定に抑えるコンテナ) -->
+                            <div class="border border-gray-200 rounded-xl bg-white p-3 shadow-sm min-h-[280px]">
+                                
+                                <!-- ① 通常技・特殊技タブ -->
+                                <div id="tab-normal" class="space-y-3">
                                     <!-- 立ち攻撃 -->
                                     <div>
                                         <span class="text-[9px] font-bold text-gray-400 block mb-1">■ 立ち通常技</span>
@@ -669,22 +673,16 @@ HTML_TEMPLATE = """
                                             <button type="button" data-move-name="前強P" onclick="addMove('前強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">前強P</button>
                                             
                                             <button type="button" data-move-name="引中Kタゲコン1" onclick="addMove('引中Kタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引中Kタゲ1</button>
-                                            <button type="button" data-move-name="引中Kタゲコン2" onclick="addMove('引중Kタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引中Kタゲ2</button>
+                                            <button type="button" data-move-name="引中Kタゲコン2" onclick="addMove('引中Kタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引中Kタゲ2</button>
                                             
                                             <button type="button" data-move-name="引強Pタゲコン1" onclick="addMove('引強Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引強Pタゲ1</button>
                                             <button type="button" data-move-name="引強Pタゲコン2" onclick="addMove('引強Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate font-mono">引強Pタゲ2</button>
                                         </div>
                                     </div>
                                 </div>
-                            </details>
 
-                            <!-- システム・必殺技 -->
-                            <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
-                                <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
-                                    <span>🔥 システム ＆ 必殺技</span>
-                                    <span class="text-[10px] text-gray-400">クリックで開閉</span>
-                                </summary>
-                                <div class="p-3 space-y-3.5 bg-gray-50/50">
+                                <!-- ② システム・必殺技タブ -->
+                                <div id="tab-special" class="space-y-3 hidden">
                                     <!-- システム -->
                                     <div>
                                         <span class="text-[9px] font-bold text-gray-400 block mb-1">🛠️ システムアクション</span>
@@ -748,15 +746,9 @@ HTML_TEMPLATE = """
                                         </div>
                                     </div>
                                 </div>
-                            </details>
 
-                            <!-- SA -->
-                            <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
-                                <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
-                                    <span>🔮 スーパーアーツ (SA)</span>
-                                    <span class="text-[10px] text-gray-400">クリックで開閉</span>
-                                </summary>
-                                <div class="p-3 space-y-3.5 bg-gray-50/50">
+                                <!-- ③ スーパーアーツ (SA) タブ -->
+                                <div id="tab-sa" class="space-y-3 hidden">
                                     <!-- SA1 -->
                                     <div>
                                         <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA1 (サンセイバー) ※Lv1=消費1 / Lv2=消費2</span>
@@ -798,7 +790,7 @@ HTML_TEMPLATE = """
                                         </div>
                                     </div>
                                 </div>
-                            </details>
+                            </div>
                         </div>
 
                         <!-- タイムライン -->
@@ -974,6 +966,31 @@ HTML_TEMPLATE = """
         const MOVES_DB = {{ moves_db_json|safe }};
         let currentMoves = [];
 
+        // タブ切り替えロジック
+        function switchTab(tabId) {
+            // すべてのコンテンツを非表示にする
+            document.getElementById('tab-normal').classList.add('hidden');
+            document.getElementById('tab-special').classList.add('hidden');
+            document.getElementById('tab-sa').classList.add('hidden');
+            
+            // 対象のコンテンツのみ表示
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            // すべてのタブボタンのアクティブスタイルを解除
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+            });
+            
+            // 選択されたボタンをアクティブにする
+            const activeBtn = document.getElementById('btn-' + tabId);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+                activeBtn.classList.add('bg-blue-600', 'text-white');
+            }
+        }
+
         function addMove(name) {
             if ((name === "インパクト壁やわれ" || name === "ジャストパリィ") && currentMoves.length > 0) {
                 return;
@@ -999,7 +1016,6 @@ HTML_TEMPLATE = """
             updateLivePreview();
         }
 
-        // SA1・SA2発動・SA3のSAゲージ・シンボル消費ルールを盛り込んだリソースシミュレータ
         function simulateResourcesSequentially(moves, startDrive, startSymbols, startSA) {
             let driveCurr = startDrive;
             let symbolCurr = startSymbols;
@@ -1497,7 +1513,7 @@ HTML_TEMPLATE = """
                     cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やわれ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
+                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
                     ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
                          <span class="text-[9px] text-gray-500 font-bold">単:</span>
                          <input type="number" data-index="${index}" oninput="updateCustomDamage(${index}, this.value)" class="damage-input w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
@@ -1561,7 +1577,7 @@ HTML_TEMPLATE = """
 """
 
 # ==============================================================================
-# サーバールーティング (SAゲージの保存・編集・フィルタリングの各ロジックを統合)
+# サーバールーティング
 # ==============================================================================
 @app.route('/', methods=['GET'])
 def index():
