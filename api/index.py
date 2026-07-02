@@ -86,7 +86,6 @@ MOVES_DB = {
     # 追加の通常技
     "中段": {"damage": 600, "start_correction": 0, "cdr": False, "startup": 21, "active": 4, "recovery": 16, "advantage": 3, "type": "M"},
     "引中Kタゲコン1": {"damage": 700, "start_correction": 0, "cdr": False, "startup": 9, "active": 3, "recovery": 21, "advantage": -99, "type": "M"},
-    "引중Kタゲコン2": {"damage": 800, "start_correction": 0, "cdr": False, "startup": 9, "active": 3, "recovery": 21, "advantage": -99, "type": "M"},
     "引中Kタゲコン2": {"damage": 800, "start_correction": 0, "cdr": False, "startup": 9, "active": 3, "recovery": 21, "advantage": -99, "type": "M"},
     "前強P": {"damage": 900, "start_correction": 0, "cdr": False, "startup": 17, "active": 3, "recovery": 21, "advantage": -99, "type": "H"},
     "引強Pタゲコン1": {"damage": 800, "start_correction": 0, "cdr": True, "startup": 14, "active": 3, "recovery": 20, "advantage": 5, "type": "H"},
@@ -118,24 +117,24 @@ MOVES_DB = {
     "前サンパニッシュ": {"damage": 1000, "start_correction": 0, "cdr": False, "type": "S"},
     "上サンパニッシュ": {"damage": 1100, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA1 (最低保証30% / 即時補正20%)
+    # SA1
     "SA1_Lv0": {"damage": 1900, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv1": {"damage": 2300, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv2": {"damage": 2700, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
 
-    # SA2発動演出 (0ダメージ・システムユーティリティ扱い)
+    # SA2発動演出
     "SA2発動_Lv0": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv1": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv2": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA2個別分割ヒット (最低保証40% / 即時補正20% / combo_correctionにより100%➔60%始動を実現)
+    # SA2個別分割ヒット
     "SA2_1打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "combo_correction": 30, "type": "S"},
     "SA2_2打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_3打目": {"damage": 600, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_4打目": {"damage": 800, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_5打目": {"damage": 1000, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
 
-    # SA3 / CA (最低保証50% / 即時補正20%)
+    # SA3 / CA
     "SA3": {"damage": 4000, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"},
     "CA": {"damage": 4500, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"}
 }
@@ -489,7 +488,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (ボタン再配列、タゲコン2派生制限ロジックを実装)
+# HTMLテンプレート (グリッドレイアウトによるカテゴリ整理)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -559,20 +558,65 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- 技選択アコーディオンエリア -->
+                        <!-- 技選択アコーディオンエリア (同系統がバラバラにならないようCSSグリッドで完全配置) -->
                         <div class="space-y-2">
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (クリックして開閉)</label>
                             
-                            <!-- 通常技 (引強Pは削除、中Pタゲコン等に更新) -->
+                            <!-- 通常技・特殊技 -->
                             <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
                                 <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
                                     <span>👊 通常技・特殊技</span>
                                     <span class="text-[10px] text-gray-400">クリックで開閉</span>
                                 </summary>
-                                <div class="p-3 flex flex-wrap gap-1.5">
-                                    {% for name in ["弱P", "弱K", "中Pタゲコン1", "中Pタゲコン2", "中K", "強P", "強K", "屈弱P", "屈弱K", "屈中P", "屈中K", "屈強P", "屈強K", "中段", "引中Kタゲコン1", "引中Kタゲコン2", "前強P", "引強Pタゲコン1", "引強Pタゲコン2"] %}
-                                    <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 hover:border-gray-400 active:scale-95 transition">{{ name }}</button>
-                                    {% endfor %}
+                                <div class="p-3 space-y-3.5 bg-gray-50/50">
+                                    <!-- 立ち攻撃 -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ 立ち通常技</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="弱P" onclick="addMove('弱P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">弱P</button>
+                                            <button type="button" data-move-name="弱K" onclick="addMove('弱K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">弱K</button>
+                                            <div class="hidden sm:block"></div>
+                                            
+                                            <button type="button" data-move-name="中Pタゲコン1" onclick="addMove('中Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition text-[11px] truncate">中Pタゲ1</button>
+                                            <button type="button" data-move-name="中Pタゲコン2" onclick="addMove('中Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition text-[11px] truncate">中Pタゲ2</button>
+                                            <button type="button" data-move-name="中K" onclick="addMove('中K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中K</button>
+                                            
+                                            <button type="button" data-move-name="強P" onclick="addMove('強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">強P</button>
+                                            <button type="button" data-move-name="強K" onclick="addMove('強K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">強K</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- しゃがみ攻撃 -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ しゃがみ通常技</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="屈弱P" onclick="addMove('屈弱P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">屈弱P</button>
+                                            <button type="button" data-move-name="屈弱K" onclick="addMove('屈弱K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">屈弱K</button>
+                                            <div class="hidden sm:block"></div>
+
+                                            <button type="button" data-move-name="屈中P" onclick="addMove('屈中P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">屈中P</button>
+                                            <button type="button" data-move-name="屈中K" onclick="addMove('屈中K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">屈中K</button>
+                                            <div class="hidden sm:block"></div>
+
+                                            <button type="button" data-move-name="屈強P" onclick="addMove('屈強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">屈強P</button>
+                                            <button type="button" data-move-name="屈強K" onclick="addMove('屈強K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">屈強K</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- 特殊技 ＆ ターゲットコンボ -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ 特殊技 ＆ 各種タゲコン</span>
+                                        <div class="grid grid-cols-2 gap-1.5">
+                                            <button type="button" data-move-name="中段" onclick="addMove('中段')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中段</button>
+                                            <button type="button" data-move-name="前強P" onclick="addMove('前強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">前強P</button>
+                                            
+                                            <button type="button" data-move-name="引中Kタゲコン1" onclick="addMove('引中Kタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引中Kタゲ1</button>
+                                            <button type="button" data-move-name="引中Kタゲコン2" onclick="addMove('引中Kタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引中Kタゲ2</button>
+                                            
+                                            <button type="button" data-move-name="引強Pタゲコン1" onclick="addMove('引強Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引強Pタゲ1</button>
+                                            <button type="button" data-move-name="引強Pタゲコン2" onclick="addMove('引強Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-[11px] font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition truncate">引強Pタゲ2</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </details>
 
@@ -582,15 +626,69 @@ HTML_TEMPLATE = """
                                     <span>🔥 システム ＆ 必殺技</span>
                                     <span class="text-[10px] text-gray-400">クリックで開閉</span>
                                 </summary>
-                                <div class="p-3 flex flex-wrap gap-1.5">
-                                    <button type="button" data-move-name="DR" onclick="addMove('DR')" class="btn-move-add px-2.5 py-1.5 bg-yellow-500 border border-yellow-600 text-white rounded text-xs font-semibold shadow-sm hover:bg-yellow-600 active:scale-95 transition">DR</button>
-                                    <button type="button" data-move-name="インパクト" onclick="addMove('インパクト')" class="btn-move-add px-2.5 py-1.5 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm hover:bg-yellow-200 active:scale-95 transition">インパクト</button>
-                                    <button type="button" data-move-name="インパクト壁やられ" onclick="addMove('インパクト壁やられ')" class="btn-move-add px-2.5 py-1.5 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm hover:bg-yellow-200 active:scale-95 transition">壁やられ(始動)</button>
-                                    <button type="button" data-move-name="ジャストパリィ" onclick="addMove('ジャストパリィ')" class="btn-move-add px-2.5 py-1.5 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm hover:bg-yellow-200 active:scale-95 transition">Jパリィ(始動)</button>
-                                    <button type="button" data-move-name="ドライブ回復1P" onclick="addMove('ドライブ回復1P')" class="btn-move-add px-2.5 py-1.5 bg-green-100 border border-green-300 text-green-800 rounded text-xs font-semibold shadow-sm hover:bg-green-200 active:scale-95 transition">1P回復</button>
-                                    {% for name in ["弱サンシュート", "中サンシュート", "強サンシュート", "弱ODサンシュート", "強ODサンシュート", "弱サンフレア", "Lv0サンフレア", "Lv1サンフレア", "Lv2サンフレア", "Lv3サンフレア", "弱ソーラーフレア", "Lv0ソーラーフレア", "Lv1ソーラーフレア", "Lv2ソーラーフレア", "Lv3ソーラーフレア", "弱サンライズ", "中サンライズ", "強サンライズ", "ODサンライズ", "前サンパニッシュ", "上サンパニッシュ"] %}
-                                    <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded text-xs font-semibold shadow-sm hover:bg-red-100 active:scale-95 transition">{{ name }}</button>
-                                    {% endfor %}
+                                <div class="p-3 space-y-3.5 bg-gray-50/50">
+                                    <!-- システム -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">🛠️ システムアクション</span>
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="DR" onclick="addMove('DR')" class="btn-move-add px-2 py-2 bg-yellow-500 border border-yellow-600 text-white rounded text-xs font-bold hover:bg-yellow-600 active:scale-95 transition">DR(ラッシュ)</button>
+                                            <button type="button" data-move-name="ドライブ回復1P" onclick="addMove('ドライブ回復1P')" class="btn-move-add px-2 py-2 bg-green-100 border border-green-300 text-green-800 rounded text-xs font-bold hover:bg-green-200 active:scale-95 transition">1P回復</button>
+                                            <button type="button" data-move-name="インパクト" onclick="addMove('インパクト')" class="btn-move-add px-2 py-2 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-bold hover:bg-yellow-200 active:scale-95 transition">インパクト</button>
+                                            <button type="button" data-move-name="インパクト壁やられ" onclick="addMove('インパクト壁やられ')" class="btn-move-add px-2 py-2 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-bold hover:bg-yellow-200 active:scale-95 transition">壁やられ</button>
+                                            <button type="button" data-move-name="ジャストパリィ" onclick="addMove('ジャストパリィ')" class="btn-move-add px-2 py-2 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-bold hover:bg-yellow-200 active:scale-95 transition">Jパリィ(始動)</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- サンシュート -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">☀️ サンシュート系</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="弱サンシュート" onclick="addMove('弱サンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">弱シュート</button>
+                                            <button type="button" data-move-name="中サンシュート" onclick="addMove('中サンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">中シュート</button>
+                                            <button type="button" data-move-name="強サンシュート" onclick="addMove('強サンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">強シュート</button>
+                                            
+                                            <button type="button" data-move-name="弱ODサンシュート" onclick="addMove('弱ODサンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">弱ODシュート</button>
+                                            <button type="button" data-move-name="強ODサンシュート" onclick="addMove('強ODサンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">強ODシュート</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- サンライズ・サンパニッシュ -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">🌅 サンライズ ＆ サンパニッシュ</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="弱サンライズ" onclick="addMove('弱サンライズ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">弱サンライズ</button>
+                                            <button type="button" data-move-name="中サンライズ" onclick="addMove('中サンライズ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">中サンライズ</button>
+                                            <button type="button" data-move-name="強サンライズ" onclick="addMove('強サンライズ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">強サンライズ</button>
+                                            
+                                            <button type="button" data-move-name="ODサンライズ" onclick="addMove('ODサンライズ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">ODサンライズ</button>
+                                            <button type="button" data-move-name="前サンパニッシュ" onclick="addMove('前サンパニッシュ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition truncate">前サンパニ</button>
+                                            <button type="button" data-move-name="上サンパニッシュ" onclick="addMove('上サンパニッシュ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition truncate">上サンパニ</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- サンフレア -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">💥 サンフレア系 (設置)</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="弱サンフレア" onclick="addMove('弱サンフレア')" class="btn-move-add px-1 py-2 bg-red-100 border border-red-300 text-red-800 rounded text-[11px] font-black hover:bg-red-200 active:scale-95 transition col-span-3">弱サンフレア (シンボル+1)</button>
+                                            <button type="button" data-move-name="Lv0サンフレア" onclick="addMove('Lv0サンフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv0フレア</button>
+                                            <button type="button" data-move-name="Lv1サンフレア" onclick="addMove('Lv1サンフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv1フレア</button>
+                                            <button type="button" data-move-name="Lv2サンフレア" onclick="addMove('Lv2サンフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv2フレア</button>
+                                            <button type="button" data-move-name="Lv3サンフレア" onclick="addMove('Lv3サンフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv3フレア</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- ソーラーフレア -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">☄️ ソーラーフレア系</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="弱ソーラーフレア" onclick="addMove('弱ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-100 border border-red-300 text-red-800 rounded text-[11px] font-black hover:bg-red-200 active:scale-95 transition col-span-3">弱ソーラーフレア (シンボル+1)</button>
+                                            <button type="button" data-move-name="Lv0ソーラーフレア" onclick="addMove('Lv0ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv0ソーラー</button>
+                                            <button type="button" data-move-name="Lv1ソーラーフレア" onclick="addMove('Lv1ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv1ソーラー</button>
+                                            <button type="button" data-move-name="Lv2ソーラーフレア" onclick="addMove('Lv2ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv2ソーラー</button>
+                                            <button type="button" data-move-name="Lv3ソーラーフレア" onclick="addMove('Lv3ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv3ソーラー</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </details>
 
@@ -600,10 +698,47 @@ HTML_TEMPLATE = """
                                     <span>🔮 スーパーアーツ (SA)</span>
                                     <span class="text-[10px] text-gray-400">クリックで開閉</span>
                                 </summary>
-                                <div class="p-3 flex flex-wrap gap-1.5">
-                                    {% for name in ["SA1_Lv0", "SA1_Lv1", "SA1_Lv2", "SA2発動_Lv0", "SA2発動_Lv1", "SA2発動_Lv2", "SA2_1打目", "SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目", "SA3", "CA"] %}
-                                    <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-semibold shadow-sm hover:bg-purple-100 active:scale-95 transition">{{ name }}</button>
-                                    {% endfor %}
+                                <div class="p-3 space-y-3.5 bg-gray-50/50">
+                                    <!-- SA1 -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA1 (サンセイバー)</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="SA1_Lv0" onclick="addMove('SA1_Lv0')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv0</button>
+                                            <button type="button" data-move-name="SA1_Lv1" onclick="addMove('SA1_Lv1')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv1</button>
+                                            <button type="button" data-move-name="SA1_Lv2" onclick="addMove('SA1_Lv2')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv2</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- SA2発動 -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA2 発動演出 (ユーティリティ)</span>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button type="button" data-move-name="SA2発動_Lv0" onclick="addMove('SA2発動_Lv0')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA2発動 Lv0</button>
+                                            <button type="button" data-move-name="SA2発動_Lv1" onclick="addMove('SA2発動_Lv1')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA2発動 Lv1</button>
+                                            <button type="button" data-move-name="SA2発動_Lv2" onclick="addMove('SA2発動_Lv2')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA2発動 Lv2</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- SA2打撃 -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA2 分割ヒット打撃</span>
+                                        <div class="grid grid-cols-5 gap-1">
+                                            <button type="button" data-move-name="SA2_1打目" onclick="addMove('SA2_1打目')" class="btn-move-add px-0.5 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[10px] font-bold hover:bg-purple-100 active:scale-95 transition">1打目</button>
+                                            <button type="button" data-move-name="SA2_2打目" onclick="addMove('SA2_2打目')" class="btn-move-add px-0.5 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[10px] font-bold hover:bg-purple-100 active:scale-95 transition">2打目</button>
+                                            <button type="button" data-move-name="SA2_3打目" onclick="addMove('SA2_3打目')" class="btn-move-add px-0.5 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[10px] font-bold hover:bg-purple-100 active:scale-95 transition">3打目</button>
+                                            <button type="button" data-move-name="SA2_4打目" onclick="addMove('SA2_4打目')" class="btn-move-add px-0.5 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[10px] font-bold hover:bg-purple-100 active:scale-95 transition">4打目</button>
+                                            <button type="button" data-move-name="SA2_5打目" onclick="addMove('SA2_5打目')" class="btn-move-add px-0.5 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[10px] font-bold hover:bg-purple-100 active:scale-95 transition">5打目</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- SA3/CA -->
+                                    <div>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA3 ＆ CA (アルティメット)</span>
+                                        <div class="grid grid-cols-2 gap-1.5">
+                                            <button type="button" data-move-name="SA3" onclick="addMove('SA3')" class="btn-move-add px-2 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-bold hover:bg-purple-100 active:scale-95 transition">SA3 (マキシマム)</button>
+                                            <button type="button" data-move-name="CA" onclick="addMove('CA')" class="btn-move-add px-2 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-bold hover:bg-purple-100 active:scale-95 transition">CA (クリティカル)</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </details>
                         </div>
