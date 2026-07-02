@@ -71,7 +71,8 @@ MOVES_DB = {
     # 通常技・特殊技
     "弱P": {"damage": 300, "start_correction": 20, "cdr": True, "startup": 4, "active": 3, "recovery": 7, "advantage": 5, "type": "L"},
     "弱K": {"damage": 300, "start_correction": 20, "cdr": True, "startup": 5, "active": 3, "recovery": 11, "advantage": 2, "type": "L"},
-    "中P": {"damage": 600, "start_correction": 0, "cdr": True, "startup": 6, "active": 5, "recovery": 13, "advantage": 1, "type": "M"},
+    "中Pタゲコン1": {"damage": 600, "start_correction": 0, "cdr": True, "startup": 6, "active": 5, "recovery": 13, "advantage": 1, "type": "M"},
+    "中Pタゲコン2": {"damage": 700, "start_correction": 0, "cdr": True, "combo_correction": 20, "type": "S"},
     "中K": {"damage": 700, "start_correction": 0, "cdr": True, "startup": 8, "active": 4, "recovery": 16, "advantage": 3, "type": "M"},
     "強P": {"damage": 900, "start_correction": 20, "cdr": False, "startup": 12, "active": 4, "recovery": 20, "advantage": 3, "type": "H"},
     "強K": {"damage": 800, "start_correction": 0, "cdr": False, "startup": 9, "active": 9, "recovery": 19, "advantage": 4, "type": "H"},
@@ -81,14 +82,13 @@ MOVES_DB = {
     "屈中K": {"damage": 500, "start_correction": 20, "cdr": True, "startup": 8, "active": 3, "recovery": 19, "advantage": 1, "type": "M"},
     "屈強P": {"damage": 800, "start_correction": 0, "cdr": True, "startup": 12, "active": 3, "recovery": 20, "advantage": 1, "type": "H"},
     "屈強K": {"damage": 900, "start_correction": 0, "cdr": False, "startup": 10, "active": 3, "recovery": 25, "advantage": 0, "type": "H", "down": True},
-    "エアリートス": {"damage": 700, "start_correction": 0, "cdr": True, "combo_correction": 20, "type": "S"},
     
     # 追加の通常技
     "中段": {"damage": 600, "start_correction": 0, "cdr": False, "startup": 21, "active": 4, "recovery": 16, "advantage": 3, "type": "M"},
     "引中Kタゲコン1": {"damage": 700, "start_correction": 0, "cdr": False, "startup": 9, "active": 3, "recovery": 21, "advantage": -99, "type": "M"},
+    "引중Kタゲコン2": {"damage": 800, "start_correction": 0, "cdr": False, "startup": 9, "active": 3, "recovery": 21, "advantage": -99, "type": "M"},
     "引中Kタゲコン2": {"damage": 800, "start_correction": 0, "cdr": False, "startup": 9, "active": 3, "recovery": 21, "advantage": -99, "type": "M"},
     "前強P": {"damage": 900, "start_correction": 0, "cdr": False, "startup": 17, "active": 3, "recovery": 21, "advantage": -99, "type": "H"},
-    "引強P": {"damage": 1600, "start_correction": 0, "cdr": True, "startup": 14, "active": 3, "recovery": 20, "advantage": 5, "type": "H"},
     "引強Pタゲコン1": {"damage": 800, "start_correction": 0, "cdr": True, "startup": 14, "active": 3, "recovery": 20, "advantage": 5, "type": "H"},
     "引強Pタゲコン2": {"damage": 800, "start_correction": 0, "cdr": True, "startup": 14, "active": 3, "recovery": 20, "advantage": 5, "type": "H"},
     
@@ -118,24 +118,24 @@ MOVES_DB = {
     "前サンパニッシュ": {"damage": 1000, "start_correction": 0, "cdr": False, "type": "S"},
     "上サンパニッシュ": {"damage": 1100, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA1
+    # SA1 (最低保証30% / 即時補正20%)
     "SA1_Lv0": {"damage": 1900, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv1": {"damage": 2300, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv2": {"damage": 2700, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
 
-    # SA2発動演出
+    # SA2発動演出 (0ダメージ・システムユーティリティ扱い)
     "SA2発動_Lv0": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv1": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv2": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA2個別分割ヒット
+    # SA2個別分割ヒット (最低保証40% / 即時補正20% / combo_correctionにより100%➔60%始動を実現)
     "SA2_1打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "combo_correction": 30, "type": "S"},
     "SA2_2打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_3打目": {"damage": 600, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_4打目": {"damage": 800, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_5打目": {"damage": 1000, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
 
-    # SA3 / CA
+    # SA3 / CA (最低保証50% / 即時補正20%)
     "SA3": {"damage": 4000, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"},
     "CA": {"damage": 4500, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"}
 }
@@ -489,7 +489,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (フォーカス自動復元のJavaScriptロジック、および初期ロード時のプレビュー自動実行を追加)
+# HTMLテンプレート (ボタン再配列、タゲコン2派生制限ロジックを実装)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -559,18 +559,18 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- 技選択アコーディオンエリア (スクロールを廃止しタップ面積を拡大) -->
+                        <!-- 技選択アコーディオンエリア -->
                         <div class="space-y-2">
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (クリックして開閉)</label>
                             
-                            <!-- 通常技 -->
+                            <!-- 通常技 (引強Pは削除、中Pタゲコン等に更新) -->
                             <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
                                 <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
                                     <span>👊 通常技・特殊技</span>
                                     <span class="text-[10px] text-gray-400">クリックで開閉</span>
                                 </summary>
                                 <div class="p-3 flex flex-wrap gap-1.5">
-                                    {% for name in ["弱P", "弱K", "中P", "中K", "強P", "強K", "屈弱P", "屈弱K", "屈中P", "屈中K", "屈強P", "屈強K", "中段", "引中Kタゲコン1", "引中Kタゲコン2", "前強P", "引強P", "引強Pタゲコン1", "引強Pタゲコン2", "エアリートス"] %}
+                                    {% for name in ["弱P", "弱K", "中Pタゲコン1", "中Pタゲコン2", "中K", "強P", "強K", "屈弱P", "屈弱K", "屈中P", "屈中K", "屈強P", "屈強K", "中段", "引中Kタゲコン1", "引中Kタゲコン2", "前強P", "引強Pタゲコン1", "引強Pタゲコン2"] %}
                                     <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 hover:border-gray-400 active:scale-95 transition">{{ name }}</button>
                                     {% endfor %}
                                 </div>
@@ -888,7 +888,7 @@ HTML_TEMPLATE = """
             const driveStart = parseInt(document.getElementById('input-drive-start').value) || 0;
             const symbolStart = parseInt(document.getElementById('input-symbol-start').value) || 0;
 
-            // 再生成によって編集中の入力枠からカーソル（フォーカス）が外れるのを防ぐための記録処理
+            // 編集中の入力フォーカス追跡処理
             const activeEl = document.activeElement;
             let focusedIndex = -1;
             if (activeEl && activeEl.classList.contains('damage-input')) {
@@ -1145,6 +1145,7 @@ HTML_TEMPLATE = """
                     isLocked = true;
                 }
 
+                // SA2打目ロック判定
                 if (moveName.startsWith("SA2_")) {
                     const hasSA2_Activation = currentMoves.some(m => m.name.startsWith("SA2発動"));
                     if (!hasSA2_Activation) {
@@ -1160,6 +1161,27 @@ HTML_TEMPLATE = """
                     }
                 }
 
+                // === ターゲットコンボ（タゲコン2）のリアルタイム派生制限 ===
+                if (moveName === "中Pタゲコン2") {
+                    const lastMove = currentMoves.length > 0 ? currentMoves[currentMoves.length - 1] : null;
+                    if (!lastMove || lastMove.name !== "中Pタゲコン1") {
+                        isLocked = true;
+                    }
+                }
+                if (moveName === "引中Kタゲコン2") {
+                    const lastMove = currentMoves.length > 0 ? currentMoves[currentMoves.length - 1] : null;
+                    if (!lastMove || lastMove.name !== "引中Kタゲコン1") {
+                        isLocked = true;
+                    }
+                }
+                if (moveName === "引強Pタゲコン2") {
+                    const lastMove = currentMoves.length > 0 ? currentMoves[currentMoves.length - 1] : null;
+                    if (!lastMove || lastMove.name !== "引強Pタゲコン1") {
+                        isLocked = true;
+                    }
+                }
+
+                // 順次シミュレーション
                 const testCombo = [...currentMoves, { name: moveName, cdr: false }];
                 const testSim = simulateResourcesSequentially(testCombo, driveStart, symbolStart);
                 if (testSim.isInvalid) {
@@ -1191,12 +1213,11 @@ HTML_TEMPLATE = """
             renderTimeline(driveRemain);
             document.getElementById('moves-json').value = JSON.stringify(currentMoves);
 
-            // タイムライン再描画によって消失したカーソル(フォーカス)を同じ場所に復元する処理
+            // カーソルのフォーカス復元
             if (focusedIndex !== -1) {
                 const nextInput = document.querySelector(`.damage-input[data-index="${focusedIndex}"]`);
                 if (nextInput) {
                     nextInput.focus();
-                    // カーソルを最後尾にする
                     const tempVal = nextInput.value;
                     nextInput.value = '';
                     nextInput.value = tempVal;
@@ -1225,7 +1246,6 @@ HTML_TEMPLATE = """
                 const canCDR = moveData && moveData.cdr === true;
 
                 const block = document.createElement('div');
-                // 押し間違いを防ぐため、1つのカード全体の余白とサイズを拡大
                 block.className = `flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all ${
                     item.cdr ? 'bg-green-50 border-green-300 text-green-800' : 'text-gray-700'
                 }`;
@@ -1239,7 +1259,6 @@ HTML_TEMPLATE = """
                     cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                // タップ幅をw-16に広げ、入力しやすいレイアウトに刷新。フォーカス追跡用に 'class="damage-input" data-index' を追加。
                 const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
                     ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
                          <span class="text-[9px] text-gray-500 font-bold">単:</span>
@@ -1293,7 +1312,7 @@ HTML_TEMPLATE = """
             document.getElementById('combo-form').action = "/add";
         }
 
-        // 初期表示時（何も触れていない段階）に、初期設定値（シンボル0、ゲージ6）に応じたボタンロックを即座に適用する
+        // 初期ロード時実行
         window.addEventListener('DOMContentLoaded', () => {
             updateLivePreview();
         });
