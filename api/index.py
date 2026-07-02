@@ -489,7 +489,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (使用ゲージ・使用シンボル表現に改修、6→0のみバーンアウトに制限)
+# HTMLテンプレート (スクロール廃止、アコーディオン化、タイムライン入力拡大と矢印除去を反映)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -498,6 +498,17 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>コンボ管理ノート ＆ 計算機</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 数値入力のスピンボタン(上下矢印)を完全に排除して誤入力を防止 */
+        .no-spin::-webkit-outer-spin-button,
+        .no-spin::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .no-spin {
+            -moz-appearance: textfield;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 pb-12">
     <div class="max-w-7xl mx-auto px-4 py-6">
@@ -511,7 +522,7 @@ HTML_TEMPLATE = """
                 <div class="bg-white rounded-xl shadow p-5 border border-gray-200">
                     <h2 id="form-title" class="text-md font-bold text-gray-900 mb-3">➕ 新しいコンボを登録</h2>
                     
-                    <form id="combo-form" action="/add" method="post" class="space-y-3">
+                    <form id="combo-form" action="/add" method="post" class="space-y-4">
                         <input type="hidden" name="combo_id" id="combo-id">
                         <input type="hidden" name="moves_json" id="moves-json" value="[]">
 
@@ -548,47 +559,60 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- 技選択ボタンエリア -->
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する</label>
-                            <div class="border rounded-lg p-2 bg-gray-50 max-h-64 overflow-y-auto space-y-2">
-                                <div>
-                                    <span class="text-[10px] font-bold text-gray-400 block mb-1">通常・特殊技</span>
-                                    <div class="flex flex-wrap gap-1">
-                                        {% for name in ["弱P", "弱K", "中P", "中K", "強P", "強K", "屈弱P", "屈弱K", "屈中P", "屈中K", "屈強P", "屈強K", "中段", "引中Kタゲコン1", "引中Kタゲコン2", "前強P", "引強P", "引強Pタゲコン1", "引強Pタゲコン2", "エアリートス"] %}
-                                        <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2 py-1 bg-white border border-gray-200 rounded text-xs font-semibold shadow-sm transition">{{ name }}</button>
-                                        {% endfor %}
-                                    </div>
+                        <!-- 技選択アコーディオンエリア (スクロールを廃止しタップ面積を拡大) -->
+                        <div class="space-y-2">
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (クリックして開閉)</label>
+                            
+                            <!-- 通常技 -->
+                            <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
+                                <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
+                                    <span>👊 通常技・特殊技</span>
+                                    <span class="text-[10px] text-gray-400">クリックで開閉</span>
+                                </summary>
+                                <div class="p-3 flex flex-wrap gap-1.5">
+                                    {% for name in ["弱P", "弱K", "中P", "中K", "強P", "強K", "屈弱P", "屈弱K", "屈中P", "屈中K", "屈強P", "屈強K", "中段", "引中Kタゲコン1", "引中Kタゲコン2", "前強P", "引強P", "引強Pタゲコン1", "引強Pタゲコン2", "エアリートス"] %}
+                                    <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 hover:border-gray-400 active:scale-95 transition">{{ name }}</button>
+                                    {% endfor %}
                                 </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-gray-400 block mb-1">システム ＆ 必殺技</span>
-                                    <div class="flex flex-wrap gap-1">
-                                        <button type="button" data-move-name="DR" onclick="addMove('DR')" class="btn-move-add px-2 py-1 bg-yellow-500 border border-yellow-600 text-white rounded text-xs font-semibold shadow-sm transition">DR</button>
-                                        <button type="button" data-move-name="インパクト" onclick="addMove('インパクト')" class="btn-move-add px-2 py-1 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm transition">インパクト</button>
-                                        <button type="button" data-move-name="インパクト壁やられ" onclick="addMove('インパクト壁やられ')" class="btn-move-add px-2 py-1 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm transition">壁やられ(始動)</button>
-                                        <button type="button" data-move-name="ジャストパリィ" onclick="addMove('ジャストパリィ')" class="btn-move-add px-2 py-1 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm transition">Jパリィ(始動)</button>
-                                        <button type="button" data-move-name="ドライブ回復1P" onclick="addMove('ドライブ回復1P')" class="btn-move-add px-2 py-1 bg-green-100 border border-green-300 text-green-800 rounded text-xs font-semibold shadow-sm transition">1P回復</button>
-                                        {% for name in ["弱サンシュート", "中サンシュート", "強サンシュート", "弱ODサンシュート", "強ODサンシュート", "弱サンフレア", "Lv0サンフレア", "Lv1サンフレア", "Lv2サンフレア", "Lv3サンフレア", "弱ソーラーフレア", "Lv0ソーラーフレア", "Lv1ソーラーフレア", "Lv2ソーラーフレア", "Lv3ソーラーフレア", "弱サンライズ", "中サンライズ", "強サンライズ", "ODサンライズ", "前サンパニッシュ", "上サンパニッシュ"] %}
-                                        <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2 py-1 bg-red-50 border border-red-100 text-red-700 rounded text-xs font-semibold shadow-sm transition">{{ name }}</button>
-                                        {% endfor %}
-                                    </div>
+                            </details>
+
+                            <!-- システム・必殺技 -->
+                            <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
+                                <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
+                                    <span>🔥 システム ＆ 必殺技</span>
+                                    <span class="text-[10px] text-gray-400">クリックで開閉</span>
+                                </summary>
+                                <div class="p-3 flex flex-wrap gap-1.5">
+                                    <button type="button" data-move-name="DR" onclick="addMove('DR')" class="btn-move-add px-2.5 py-1.5 bg-yellow-500 border border-yellow-600 text-white rounded text-xs font-semibold shadow-sm hover:bg-yellow-600 active:scale-95 transition">DR</button>
+                                    <button type="button" data-move-name="インパクト" onclick="addMove('インパクト')" class="btn-move-add px-2.5 py-1.5 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm hover:bg-yellow-200 active:scale-95 transition">インパクト</button>
+                                    <button type="button" data-move-name="インパクト壁やられ" onclick="addMove('インパクト壁やられ')" class="btn-move-add px-2.5 py-1.5 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm hover:bg-yellow-200 active:scale-95 transition">壁やられ(始動)</button>
+                                    <button type="button" data-move-name="ジャストパリィ" onclick="addMove('ジャストパリィ')" class="btn-move-add px-2.5 py-1.5 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-xs font-semibold shadow-sm hover:bg-yellow-200 active:scale-95 transition">Jパリィ(始動)</button>
+                                    <button type="button" data-move-name="ドライブ回復1P" onclick="addMove('ドライブ回復1P')" class="btn-move-add px-2.5 py-1.5 bg-green-100 border border-green-300 text-green-800 rounded text-xs font-semibold shadow-sm hover:bg-green-200 active:scale-95 transition">1P回復</button>
+                                    {% for name in ["弱サンシュート", "中サンシュート", "強サンシュート", "弱ODサンシュート", "強ODサンシュート", "弱サンフレア", "Lv0サンフレア", "Lv1サンフレア", "Lv2サンフレア", "Lv3サンフレア", "弱ソーラーフレア", "Lv0ソーラーフレア", "Lv1ソーラーフレア", "Lv2ソーラーフレア", "Lv3ソーラーフレア", "弱サンライズ", "中サンライズ", "強サンライズ", "ODサンライズ", "前サンパニッシュ", "上サンパニッシュ"] %}
+                                    <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-red-50 border border-red-200 text-red-700 rounded text-xs font-semibold shadow-sm hover:bg-red-100 active:scale-95 transition">{{ name }}</button>
+                                    {% endfor %}
                                 </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-gray-400 block mb-1">スーパーアーツ (SA)</span>
-                                    <div class="flex flex-wrap gap-1">
-                                        {% for name in ["SA1_Lv0", "SA1_Lv1", "SA1_Lv2", "SA2発動_Lv0", "SA2発動_Lv1", "SA2発動_Lv2", "SA2_1打目", "SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目", "SA3", "CA"] %}
-                                        <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2 py-1 bg-purple-50 border border-purple-100 text-purple-700 rounded text-xs font-semibold shadow-sm transition">{{ name }}</button>
-                                        {% endfor %}
-                                    </div>
+                            </details>
+
+                            <!-- SA -->
+                            <details class="border border-gray-200 rounded-lg bg-white overflow-hidden" open>
+                                <summary class="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-700 cursor-pointer hover:bg-gray-100 select-none flex justify-between items-center">
+                                    <span>🔮 スーパーアーツ (SA)</span>
+                                    <span class="text-[10px] text-gray-400">クリックで開閉</span>
+                                </summary>
+                                <div class="p-3 flex flex-wrap gap-1.5">
+                                    {% for name in ["SA1_Lv0", "SA1_Lv1", "SA1_Lv2", "SA2発動_Lv0", "SA2発動_Lv1", "SA2発動_Lv2", "SA2_1打目", "SA2_2打目", "SA2_3打目", "SA2_4打目", "SA2_5打目", "SA3", "CA"] %}
+                                    <button type="button" data-move-name="{{ name }}" onclick="addMove('{{ name }}')" class="btn-move-add px-2.5 py-1.5 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-semibold shadow-sm hover:bg-purple-100 active:scale-95 transition">{{ name }}</button>
+                                    {% endfor %}
                                 </div>
-                            </div>
+                            </details>
                         </div>
 
-                        <!-- タイムライン -->
+                        <!-- タイムライン (UIのサイズ拡大と余裕を持たせたレイアウト) -->
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-0.5">➔ コンボタイムライン (タイムライン内で直接ダメージ値を編集できます)</label>
-                            <div id="timeline-container" class="border-2 border-dashed border-gray-200 rounded-lg p-2 bg-gray-50 min-h-[70px] flex flex-wrap gap-1.5 items-center">
-                                <p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-4">レシピを構築してください</p>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (直接数値を編集できます)</label>
+                            <div id="timeline-container" class="border-2 border-dashed border-gray-200 rounded-xl p-3 bg-gray-50 min-h-[90px] flex flex-wrap gap-2 items-center">
+                                <p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-5">レシピを構築してください</p>
                             </div>
                         </div>
 
@@ -620,8 +644,8 @@ HTML_TEMPLATE = """
                         </div>
 
                         <div class="flex gap-2">
-                            <button type="submit" id="submit-btn" class="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">コンボを登録</button>
-                            <button type="button" id="cancel-btn" onclick="cancelEdit()" class="hidden px-4 py-2 bg-gray-200 text-gray-800 text-xs font-bold rounded-lg hover:bg-gray-300">中止</button>
+                            <button type="submit" id="submit-btn" class="flex-1 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">コンボを登録</button>
+                            <button type="button" id="cancel-btn" onclick="cancelEdit()" class="hidden px-4 py-2.5 bg-gray-200 text-gray-800 text-xs font-bold rounded-lg hover:bg-gray-300">中止</button>
                         </div>
                     </form>
                 </div>
@@ -1166,7 +1190,7 @@ HTML_TEMPLATE = """
             container.innerHTML = '';
 
             if (currentMoves.length === 0) {
-                container.innerHTML = '<p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-4">レシピを構築してください</p>';
+                container.innerHTML = '<p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-5">レシピを構築してください</p>';
                 return;
             }
 
@@ -1182,7 +1206,8 @@ HTML_TEMPLATE = """
                 const canCDR = moveData && moveData.cdr === true;
 
                 const block = document.createElement('div');
-                block.className = `flex items-center gap-1 bg-white border border-gray-300 rounded px-2 py-0.5 text-xs font-bold shadow-sm transition-all ${
+                // 押し間違いを防ぐため、1つのカード全体の余白とサイズを拡大
+                block.className = `flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all ${
                     item.cdr ? 'bg-green-50 border-green-300 text-green-800' : 'text-gray-700'
                 }`;
 
@@ -1192,18 +1217,22 @@ HTML_TEMPLATE = """
                     const disabledAttr = isCdrLocked ? 'disabled title="ゲージ不足"' : '';
                     const opacityClass = isCdrLocked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-300';
                     
-                    cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-1 py-0.2 bg-gray-200 rounded text-[9px] ${opacityClass}">CDR</button>`;
+                    cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
-                    ? `<span class="text-[9px] text-gray-400 font-normal ml-0.5">単:</span><input type="number" oninput="updateCustomDamage(${index}, this.value)" class="w-12 px-0.5 py-0 border rounded text-[10px] text-center font-bold bg-gray-50 focus:bg-white" value="${item.custom_damage}">`
+                // タップ幅をw-16に広げ、入力しやすいレイアウトに刷新
+                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やわれ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
+                    ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
+                         <span class="text-[9px] text-gray-500 font-bold">単:</span>
+                         <input type="number" oninput="updateCustomDamage(${index}, this.value)" class="w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
+                       </div>`
                     : '';
 
                 block.innerHTML = `
-                    <span>${item.name}</span>
+                    <span class="text-sm font-black text-gray-800">${item.name}</span>
                     ${damageInputHTML}
                     ${cdrBtn}
-                    <button type="button" onclick="removeMove(${index})" class="text-red-500 font-black hover:text-red-700 ml-1 text-sm">×</button>
+                    <button type="button" onclick="removeMove(${index})" class="text-red-500 font-black hover:text-red-700 ml-1.5 text-lg p-0.5">×</button>
                 `;
                 container.appendChild(block);
             });
