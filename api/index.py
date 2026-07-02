@@ -489,7 +489,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (スクロール廃止、アコーディオン化、タイムライン入力拡大と矢印除去を反映)
+# HTMLテンプレート (フォーカス自動復元のJavaScriptロジック、および初期ロード時のプレビュー自動実行を追加)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -608,7 +608,7 @@ HTML_TEMPLATE = """
                             </details>
                         </div>
 
-                        <!-- タイムライン (UIのサイズ拡大と余裕を持たせたレイアウト) -->
+                        <!-- タイムライン -->
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (直接数値を編集できます)</label>
                             <div id="timeline-container" class="border-2 border-dashed border-gray-200 rounded-xl p-3 bg-gray-50 min-h-[90px] flex flex-wrap gap-2 items-center">
@@ -887,6 +887,13 @@ HTML_TEMPLATE = """
             const startType = document.getElementById('input-start-type').value;
             const driveStart = parseInt(document.getElementById('input-drive-start').value) || 0;
             const symbolStart = parseInt(document.getElementById('input-symbol-start').value) || 0;
+
+            // 再生成によって編集中の入力枠からカーソル（フォーカス）が外れるのを防ぐための記録処理
+            const activeEl = document.activeElement;
+            let focusedIndex = -1;
+            if (activeEl && activeEl.classList.contains('damage-input')) {
+                focusedIndex = parseInt(activeEl.getAttribute('data-index'));
+            }
 
             let damage = 0;
             let currentCorr = 100;
@@ -1183,6 +1190,18 @@ HTML_TEMPLATE = """
 
             renderTimeline(driveRemain);
             document.getElementById('moves-json').value = JSON.stringify(currentMoves);
+
+            // タイムライン再描画によって消失したカーソル(フォーカス)を同じ場所に復元する処理
+            if (focusedIndex !== -1) {
+                const nextInput = document.querySelector(`.damage-input[data-index="${focusedIndex}"]`);
+                if (nextInput) {
+                    nextInput.focus();
+                    // カーソルを最後尾にする
+                    const tempVal = nextInput.value;
+                    nextInput.value = '';
+                    nextInput.value = tempVal;
+                }
+            }
         }
 
         function renderTimeline(driveRemain) {
@@ -1220,11 +1239,11 @@ HTML_TEMPLATE = """
                     cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                // タップ幅をw-16に広げ、入力しやすいレイアウトに刷新
-                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やわれ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
+                // タップ幅をw-16に広げ、入力しやすいレイアウトに刷新。フォーカス追跡用に 'class="damage-input" data-index' を追加。
+                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
                     ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
                          <span class="text-[9px] text-gray-500 font-bold">単:</span>
-                         <input type="number" oninput="updateCustomDamage(${index}, this.value)" class="w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
+                         <input type="number" data-index="${index}" oninput="updateCustomDamage(${index}, this.value)" class="damage-input w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
                        </div>`
                     : '';
 
@@ -1273,6 +1292,11 @@ HTML_TEMPLATE = """
             document.getElementById('cancel-btn').classList.add('hidden');
             document.getElementById('combo-form').action = "/add";
         }
+
+        // 初期表示時（何も触れていない段階）に、初期設定値（シンボル0、ゲージ6）に応じたボタンロックを即座に適用する
+        window.addEventListener('DOMContentLoaded', () => {
+            updateLivePreview();
+        });
     </script>
 </body>
 </html>
