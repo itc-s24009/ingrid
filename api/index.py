@@ -1,4 +1,3 @@
-```python
 import os
 import json
 import time
@@ -134,24 +133,24 @@ MOVES_DB = {
     "前サンパニッシュ": {"damage": 1000, "start_correction": 0, "cdr": False, "type": "S"},
     "上サンパニッシュ": {"damage": 1100, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA1
+    # SA1 (最低保証30% / 即時補正20%)
     "SA1_Lv0": {"damage": 1900, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv1": {"damage": 2300, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv2": {"damage": 2700, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
 
-    # SA2発動演出
+    # SA2発動演出 (0ダメージ・システムユーティリティ扱い)
     "SA2発動_Lv0": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv1": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv2": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA2個別分割ヒット
+    # SA2個別分割ヒット (最低保証40% / 即時補正20% / combo_correctionにより100%➔60%始動を実現)
     "SA2_1打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "combo_correction": 30, "type": "S"},
     "SA2_2打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_3打目": {"damage": 600, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_4打目": {"damage": 800, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_5打目": {"damage": 1000, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
 
-    # SA3 / CA
+    # SA3 / CA (最低保証50% / 即時補正20%)
     "SA3": {"damage": 4000, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"},
     "CA": {"damage": 4500, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"}
 }
@@ -538,7 +537,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (SortableJSによるドラッグ並び替えと、1枚目矢印自動消失CSSを追加)
+# HTMLテンプレート (タブ切り替え機能を導入し、高さをコンパクトに抑制)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -546,8 +545,6 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>コンボ管理ノート ＆ 計算機</title>
-    <!-- ドラッグ並び替えライブラリ SortableJS をインポート -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 数値入力のスピンボタン(上下矢印)を完全に排除して誤入力を防止 */
@@ -558,11 +555,6 @@ HTML_TEMPLATE = """
         }
         .no-spin {
             -moz-appearance: textfield;
-        }
-
-        /* タイムラインの「1枚目の技カードの左矢印（➔）」のみをCSS自動制御で消去する */
-        #timeline-container .timeline-item:first-child .arrow {
-            display: none !important;
         }
     </style>
 </head>
@@ -634,7 +626,7 @@ HTML_TEMPLATE = """
                                 <button type="button" id="btn-tab-sa" onclick="switchTab('tab-sa')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔮 SA(アーツ)</button>
                             </div>
 
-                            <!-- タブコンテンツエリア (高さを一定に抑えるコンテナ) -->
+                            <!-- タブ切り替えコンテンツエリア (高さを一定に抑えるコンテナ) -->
                             <div class="border border-gray-200 rounded-xl bg-white p-3 shadow-sm min-h-[280px]">
                                 
                                 <!-- ① 通常技・特殊技タブ -->
@@ -801,9 +793,9 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- タイムライン (Sortableでドラッグ可能にする) -->
+                        <!-- タイムライン -->
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (ドラッグして技の順序を入れ替えることができます)</label>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (直接数値を編集できます)</label>
                             <div id="timeline-container" class="border-2 border-dashed border-gray-200 rounded-xl p-3 bg-gray-50 min-h-[90px] flex flex-wrap gap-2 items-center">
                                 <p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-5">レシピを構築してください</p>
                             </div>
@@ -973,64 +965,30 @@ HTML_TEMPLATE = """
     <script>
         const MOVES_DB = {{ moves_db_json|safe }};
         let currentMoves = [];
-        let sortableInstance = null; // SortableJSのインスタンス保持用
 
         // タブ切り替えロジック
         function switchTab(tabId) {
+            // すべてのコンテンツを非表示にする
             document.getElementById('tab-normal').classList.add('hidden');
             document.getElementById('tab-special').classList.add('hidden');
             document.getElementById('tab-sa').classList.add('hidden');
             
+            // 対象のコンテンツのみ表示
             document.getElementById(tabId).classList.remove('hidden');
             
+            // すべてのタブボタンのアクティブスタイルを解除
             const buttons = document.querySelectorAll('.tab-btn');
             buttons.forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
             });
             
+            // 選択されたボタンをアクティブにする
             const activeBtn = document.getElementById('btn-' + tabId);
             if (activeBtn) {
                 activeBtn.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
                 activeBtn.classList.add('bg-blue-600', 'text-white');
             }
-        }
-
-        // タイムラインを SortableJS でドラッグ並び替え可能にする初期化処理
-        function initSortable() {
-            const el = document.getElementById('timeline-container');
-            if (!el) return;
-
-            // 既存のSortableインスタンスがあれば一旦破棄して再構築
-            if (sortableInstance) {
-                sortableInstance.destroy();
-            }
-
-            if (currentMoves.length === 0) return;
-
-            sortableInstance = new Sortable(el, {
-                animation: 180, // 入れ替え時のスムーズなアニメーション速度(ms)
-                ghostClass: 'bg-blue-50', // ドラッグ中に元の位置に残る半透明の要素スタイル
-                chosenClass: 'border-blue-500', // ドラッグ対象に選ばれた瞬間のスタイル
-                dragClass: 'opacity-40', // ドラッグ移動中のスタイル
-                filter: 'input, button', // 入力欄と削除ボタンはドラッグ対象から除外し、誤操作を防止する
-                preventOnFilter: false,
-                
-                // ドラッグ終了（ドロップ）時のイベント
-                onEnd: function (evt) {
-                    const newMoves = [];
-                    const items = el.querySelectorAll('.timeline-item');
-                    
-                    // DOMの新しい順序からインデックスを抽出し、currentMoves 配列を完全に組み直す
-                    items.forEach(item => {
-                        const originalIndex = parseInt(item.getAttribute('data-move-index'));
-                        newMoves.push(currentMoves[originalIndex]);
-                    });
-
-                    currentMoves = newMoves;
-                    updateLivePreview(); // 組み直した順序でリアルタイムに再計算
-                }
-            });
         }
 
         function addMove(name) {
@@ -1437,7 +1395,7 @@ HTML_TEMPLATE = """
 
                 let isLocked = false;
 
-                if ((moveName === "インパクト壁やわれ" || moveName === "ジャストパリィ") && currentMoves.length > 0) {
+                if ((moveName === "インパクト壁やられ" || moveName === "ジャストパリィ") && currentMoves.length > 0) {
                     isLocked = true;
                 }
 
@@ -1531,15 +1489,20 @@ HTML_TEMPLATE = """
             }
 
             currentMoves.forEach((item, index) => {
+                if (index > 0) {
+                    const arrow = document.createElement('span');
+                    arrow.className = 'text-gray-400 font-bold mx-0.5 text-xs';
+                    arrow.innerText = '➔';
+                    container.appendChild(arrow);
+                }
+
                 const moveData = MOVES_DB[item.name];
                 const canCDR = moveData && moveData.cdr === true;
 
                 const block = document.createElement('div');
-                // 並び替え要素を特定するために 'timeline-item' と 'data-move-index' を付与
-                block.className = `timeline-item flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+                block.className = `flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all ${
                     item.cdr ? 'bg-green-50 border-green-300 text-green-800' : 'text-gray-700'
                 }`;
-                block.setAttribute('data-move-index', index);
 
                 let cdrBtn = '';
                 if (canCDR) {
@@ -1550,18 +1513,14 @@ HTML_TEMPLATE = """
                     cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やわれ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
+                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
                     ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
                          <span class="text-[9px] text-gray-500 font-bold">単:</span>
                          <input type="number" data-index="${index}" oninput="updateCustomDamage(${index}, this.value)" class="damage-input w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
                        </div>`
                     : '';
 
-                // すべての要素に一律で矢印を内包。1番目のみCSS側の ":first-child" セレクタで自動的に非表示になります。
-                const arrowHTML = `<span class="arrow text-gray-400 font-bold mr-1 select-none">➔</span>`;
-
                 block.innerHTML = `
-                    ${arrowHTML}
                     <span class="text-sm font-black text-gray-800">${item.name}</span>
                     ${damageInputHTML}
                     ${cdrBtn}
@@ -1569,9 +1528,6 @@ HTML_TEMPLATE = """
                 `;
                 container.appendChild(block);
             });
-
-            // タイムラインの再描画ごとに、SortableJSを再バインドする
-            initSortable();
         }
 
         function editCombo(id, title, startType, driveStart, symbolStart, saStart, notes, rawMovesJson) {
@@ -1650,6 +1606,7 @@ def index():
 
     combos = []
     for c in combos_db:
+        # 新カラムの後方互換フォールバック
         sa_start_val = getattr(c, 'sa_start', 3)
         sa_cost_val = getattr(c, 'sa_cost', 0)
         if sa_start_val is None: sa_start_val = 3
@@ -1791,4 +1748,3 @@ def delete(combo_id):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-```
