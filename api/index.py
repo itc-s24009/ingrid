@@ -283,7 +283,7 @@ def py_calculate_damage(moves, start_type, min_limit=10):
     actual_hit_index = 0
     sa2_saved_corr = 100
     
-    first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やられ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
+    first_actual_name = next((m['name'] for m in moves if m['name'] not in ["DR", "インパクト壁やわれ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] and not m['name'].startswith("SA2発動")), None)
     if not first_actual_name:
         return 0
     first_move = MOVES_DB.get(first_actual_name)
@@ -293,12 +293,12 @@ def py_calculate_damage(moves, start_type, min_limit=10):
     first_move_type = first_move.get('type', 'L')
     
     first_name = moves[0]['name'] if moves else ""
-    impact_wall_active = (first_name == "インパクト壁やられ")
+    impact_wall_active = (first_name == "インパクト壁やわれ")
     just_parry_active = (first_name == "ジャストパリィ")
     
     for i, item in enumerate(moves):
         name = item['name']
-        if name in ["DR", "インパクト壁やられ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] or name.startswith("SA2発動"):
+        if name in ["DR", "インパクト壁やわれ", "ジャストパリィ", "ドライブ回復1P", "弱サンフレア", "弱ソーラーフレア"] or name.startswith("SA2発動"):
             if name == "DR":
                 cdr_active = True
             continue
@@ -537,7 +537,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (SortableJS を読み込み、ドラッグによる並び替えを実装)
+# HTMLテンプレート (タブ切り替え機能を導入し、高さをコンパクトに抑制)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -546,8 +546,6 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>コンボ管理ノート ＆ 計算機</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SortableJS の読み込み (Vercelで安定動作する軽量並び替えライブラリ) -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <style>
         /* 数値入力のスピンボタン(上下矢印)を完全に排除して誤入力を防止 */
         .no-spin::-webkit-outer-spin-button,
@@ -617,18 +615,18 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- 技選択エリア (タブ切り替えメニューで縦長を完全解消) -->
+                        <!-- 技選択エリア (スクロールや縦長を解消するため、タブUIを実装) -->
                         <div class="space-y-2">
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (タブをクリックして切り替え)</label>
                             
-                            <!-- タブボタン -->
+                            <!-- タブ切り替えヘッダー -->
                             <div class="grid grid-cols-3 gap-1">
                                 <button type="button" id="btn-tab-normal" onclick="switchTab('tab-normal')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-blue-600 text-white transition active:scale-95">👊 通常・特殊</button>
                                 <button type="button" id="btn-tab-special" onclick="switchTab('tab-special')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔥 システム・必殺</button>
                                 <button type="button" id="btn-tab-sa" onclick="switchTab('tab-sa')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔮 SA(アーツ)</button>
                             </div>
 
-                            <!-- タブコンテンツコンテナ -->
+                            <!-- タブ切り替えコンテンツエリア (高さを一定に抑えるコンテナ) -->
                             <div class="border border-gray-200 rounded-xl bg-white p-3 shadow-sm min-h-[280px]">
                                 
                                 <!-- ① 通常技・特殊技タブ -->
@@ -643,7 +641,7 @@ HTML_TEMPLATE = """
                                             
                                             <button type="button" data-move-name="中Pタゲコン1" onclick="addMove('中Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition text-[11px] truncate">中Pタゲ1</button>
                                             <button type="button" data-move-name="中Pタゲコン2" onclick="addMove('中Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition text-[11px] truncate">中Pタゲ2</button>
-                                            <button type="button" data-move-name="中K" onclick="addMove('중K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中K</button>
+                                            <button type="button" data-move-name="中K" onclick="addMove('中K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中K</button>
                                             
                                             <button type="button" data-move-name="強P" onclick="addMove('強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">強P</button>
                                             <button type="button" data-move-name="強K" onclick="addMove('強K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">強K</button>
@@ -795,9 +793,9 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- タイムライン (SortableJS適用ターゲット) -->
+                        <!-- タイムライン -->
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (ドラッグで並び替え、直接数値を編集できます)</label>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (直接数値を編集できます)</label>
                             <div id="timeline-container" class="border-2 border-dashed border-gray-200 rounded-xl p-3 bg-gray-50 min-h-[90px] flex flex-wrap gap-2 items-center">
                                 <p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-5">レシピを構築してください</p>
                             </div>
@@ -970,18 +968,22 @@ HTML_TEMPLATE = """
 
         // タブ切り替えロジック
         function switchTab(tabId) {
+            // すべてのコンテンツを非表示にする
             document.getElementById('tab-normal').classList.add('hidden');
             document.getElementById('tab-special').classList.add('hidden');
             document.getElementById('tab-sa').classList.add('hidden');
             
+            // 対象のコンテンツのみ表示
             document.getElementById(tabId).classList.remove('hidden');
             
+            // すべてのタブボタンのアクティブスタイルを解除
             const buttons = document.querySelectorAll('.tab-btn');
             buttons.forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
             });
             
+            // 選択されたボタンをアクティブにする
             const activeBtn = document.getElementById('btn-' + tabId);
             if (activeBtn) {
                 activeBtn.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
@@ -1033,6 +1035,7 @@ HTML_TEMPLATE = """
                     continue;
                 }
                 
+                // --- SA1 (1ゲージ消費 ＆ Lv別シンボル消費) ---
                 if (name.startsWith("SA1_")) {
                     if (saCurr < 1) isInvalid = true;
                     saCurr -= 1;
@@ -1046,6 +1049,7 @@ HTML_TEMPLATE = """
                     continue;
                 }
                 
+                // --- SA2発動演出 (2ゲージ消費 ＆ Lv別シンボル消費) ---
                 if (name.startsWith("SA2発動")) {
                     if (saCurr < 2) isInvalid = true;
                     saCurr -= 2;
@@ -1060,12 +1064,14 @@ HTML_TEMPLATE = """
                     continue;
                 }
                 
+                // --- SA3 / CA (3ゲージ消費) ---
                 if (name === "SA3" || name === "CA") {
                     if (saCurr < 3) isInvalid = true;
                     saCurr -= 3;
                     continue;
                 }
                 
+                // ドライブ・他必殺技
                 if (item.cdr) {
                     if (driveCurr <= 0) isInvalid = true;
                     driveCurr -= 3;
@@ -1135,6 +1141,7 @@ HTML_TEMPLATE = """
             const symbolStart = parseInt(document.getElementById('input-symbol-start').value) || 0;
             const saStart = parseInt(document.getElementById('input-sa-start').value) || 0;
 
+            // 編集中の入力フォーカス追跡処理
             const activeEl = document.activeElement;
             let focusedIndex = -1;
             if (activeEl && activeEl.classList.contains('damage-input')) {
@@ -1388,10 +1395,11 @@ HTML_TEMPLATE = """
 
                 let isLocked = false;
 
-                if ((moveName === "インパクト壁やわれ" || moveName === "ジャストパリィ") && currentMoves.length > 0) {
+                if ((moveName === "インパクト壁やられ" || moveName === "ジャストパリィ") && currentMoves.length > 0) {
                     isLocked = true;
                 }
 
+                // SA2打撃部分のロック判定
                 if (moveName.startsWith("SA2_")) {
                     const hasSA2_Activation = currentMoves.some(m => m.name.startsWith("SA2発動"));
                     if (!hasSA2_Activation) {
@@ -1407,6 +1415,7 @@ HTML_TEMPLATE = """
                     }
                 }
 
+                // ターゲットコンボ（タゲコン2）のリアルタイム派生制限
                 if (moveName === "中Pタゲコン2") {
                     const lastMove = currentMoves.length > 0 ? currentMoves[currentMoves.length - 1] : null;
                     if (!lastMove || lastMove.name !== "中Pタゲコン1") {
@@ -1426,6 +1435,7 @@ HTML_TEMPLATE = """
                     }
                 }
 
+                // 先読みシミュレーションで、追加したときにリソース制限（SA含む）を満たしているかテスト
                 const testCombo = [...currentMoves, { name: moveName, cdr: false }];
                 const testSim = simulateResourcesSequentially(testCombo, driveStart, symbolStart, saStart);
                 if (testSim.isInvalid) {
@@ -1442,6 +1452,7 @@ HTML_TEMPLATE = """
 
             document.getElementById('preview-damage').innerText = damage;
             
+            // 各種使用量の計算
             const driveCost = driveStart - driveRemain;
             const symbolCost = symbolStart - symbolRemain;
             const saCost = saStart - saRemain;
@@ -1456,6 +1467,7 @@ HTML_TEMPLATE = """
             renderTimeline(driveRemain);
             document.getElementById('moves-json').value = JSON.stringify(currentMoves);
 
+            // カーソルのフォーカス復元
             if (focusedIndex !== -1) {
                 const nextInput = document.querySelector(`.damage-input[data-index="${focusedIndex}"]`);
                 if (nextInput) {
@@ -1479,7 +1491,7 @@ HTML_TEMPLATE = """
             currentMoves.forEach((item, index) => {
                 if (index > 0) {
                     const arrow = document.createElement('span');
-                    arrow.className = 'text-gray-400 font-bold mx-0.5 text-xs select-none';
+                    arrow.className = 'text-gray-400 font-bold mx-0.5 text-xs';
                     arrow.innerText = '➔';
                     container.appendChild(arrow);
                 }
@@ -1488,7 +1500,7 @@ HTML_TEMPLATE = """
                 const canCDR = moveData && moveData.cdr === true;
 
                 const block = document.createElement('div');
-                block.className = `flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all cursor-grab active:cursor-grabbing select-none ${
+                block.className = `flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all ${
                     item.cdr ? 'bg-green-50 border-green-300 text-green-800' : 'text-gray-700'
                 }`;
 
@@ -1501,7 +1513,7 @@ HTML_TEMPLATE = """
                     cdrBtn = `<button type="button" onclick="toggleCDR(${index})" ${disabledAttr} class="px-2 py-1 bg-gray-200 rounded text-[10px] ${opacityClass}">CDR</button>`;
                 }
 
-                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やわれ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
+                const damageInputHTML = (item.name !== "DR" && item.name !== "インパクト壁やられ" && item.name !== "ジャストパリィ" && item.name !== "ドライブ回復1P" && item.name !== "弱サンフレア" && item.name !== "弱ソーラーフレア" && !item.name.startsWith("SA2発動")) 
                     ? `<div class="flex items-center gap-1 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded ml-1">
                          <span class="text-[9px] text-gray-500 font-bold">単:</span>
                          <input type="number" data-index="${index}" oninput="updateCustomDamage(${index}, this.value)" class="damage-input w-16 h-6 px-1 py-0.5 border border-gray-300 rounded text-xs text-center font-bold bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 no-spin" value="${item.custom_damage}">
@@ -1515,23 +1527,6 @@ HTML_TEMPLATE = """
                     <button type="button" onclick="removeMove(${index})" class="text-red-500 font-black hover:text-red-700 ml-1.5 text-lg p-0.5">×</button>
                 `;
                 container.appendChild(block);
-            });
-
-            // ドラッグ＆ドロップによる並び替えの有効化 (SortableJS)
-            new Sortable(container, {
-                animation: 150,
-                ghostClass: 'opacity-40', // 移動中プレビューの不透明度
-                filter: 'input, button',   // ダメージ入力欄やボタンなどのパーツを触っている間はドラッグを無効化する
-                preventOnFilter: false,
-                onEnd: function (evt) {
-                    const fromIndex = evt.oldIndex;
-                    const toIndex = evt.newIndex;
-                    if (fromIndex !== toIndex) {
-                        const movedItem = currentMoves.splice(fromIndex, 1)[0];
-                        currentMoves.splice(toIndex, 0, movedItem);
-                        updateLivePreview();
-                    }
-                }
             });
         }
 
