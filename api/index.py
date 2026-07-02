@@ -561,7 +561,7 @@ HTML_TEMPLATE = """
 <body class="bg-gray-100 min-h-screen text-gray-800 pb-12">
     <div class="max-w-7xl mx-auto px-4 py-6">
         <header class="text-center mb-6">
-            <h1 class="text-2xl font-black text-gray-900">🥋 格闘ゲーム コンボ管理ノート</h1>
+            <h1 class="text-2xl font-black text-gray-900">格闘ゲーム コンボ管理ノート</h1>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -617,13 +617,13 @@ HTML_TEMPLATE = """
 
                         <!-- 技選択エリア (スクロールや縦長を解消するため、タブUIを実装) -->
                         <div class="space-y-2">
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">⚡ 技を追加する (タブをクリックして切り替え)</label>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">技を追加する (タブをクリックして切り替え)</label>
                             
                             <!-- タブ切り替えヘッダー -->
                             <div class="grid grid-cols-3 gap-1">
-                                <button type="button" id="btn-tab-normal" onclick="switchTab('tab-normal')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-blue-600 text-white transition active:scale-95">👊 通常・特殊</button>
-                                <button type="button" id="btn-tab-special" onclick="switchTab('tab-special')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔥 システム・必殺</button>
-                                <button type="button" id="btn-tab-sa" onclick="switchTab('tab-sa')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔮 SA(アーツ)</button>
+                                <button type="button" id="btn-tab-normal" onclick="switchTab('tab-normal')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-blue-600 text-white transition active:scale-95">通常・特殊</button>
+                                <button type="button" id="btn-tab-special" onclick="switchTab('tab-special')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">システム・必殺</button>
+                                <button type="button" id="btn-tab-sa" onclick="switchTab('tab-sa')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">SA</button>
                             </div>
 
                             <!-- タブ切り替えコンテンツエリア (高さを一定に抑えるコンテナ) -->
@@ -685,7 +685,7 @@ HTML_TEMPLATE = """
                                 <div id="tab-special" class="space-y-3 hidden">
                                     <!-- システム -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">🛠️ システムアクション</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">システムアクション</span>
                                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="DR" onclick="addMove('DR')" class="btn-move-add px-2 py-2 bg-yellow-500 border border-yellow-600 text-white rounded text-xs font-bold hover:bg-yellow-600 active:scale-95 transition">DR(ラッシュ)</button>
                                             <button type="button" data-move-name="ドライブ回復1P" onclick="addMove('ドライブ回復1P')" class="btn-move-add px-2 py-2 bg-green-100 border border-green-300 text-green-800 rounded text-xs font-bold hover:bg-green-200 active:scale-95 transition">1P回復</button>
@@ -697,7 +697,7 @@ HTML_TEMPLATE = """
 
                                     <!-- サンシュート -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">☀️ サンシュート系</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">サンシュート系</span>
                                         <div class="grid grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="弱サンシュート" onclick="addMove('弱サンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">弱シュート</button>
                                             <button type="button" data-move-name="中サンシュート" onclick="addMove('中サンシュート')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">中シュート</button>
@@ -710,7 +710,7 @@ HTML_TEMPLATE = """
 
                                     <!-- サンライズ・サンパニッシュ -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">🌅 サンライズ ＆ サンパニッシュ</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">サンライズ ＆ サンパニッシュ</span>
                                         <div class="grid grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="弱サンライズ" onclick="addMove('弱サンライズ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">弱サンライズ</button>
                                             <button type="button" data-move-name="中サンライズ" onclick="addMove('中サンライズ')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">中サンライズ</button>
@@ -724,7 +724,7 @@ HTML_TEMPLATE = """
 
                                     <!-- サンフレア -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">💥 サンフレア系 (設置)</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">サンフレア系 (設置)</span>
                                         <div class="grid grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="弱サンフレア" onclick="addMove('弱サンフレア')" class="btn-move-add px-1 py-2 bg-red-100 border border-red-300 text-red-800 rounded text-[11px] font-black hover:bg-red-200 active:scale-95 transition col-span-3">弱サンフレア (シンボル+1)</button>
                                             <button type="button" data-move-name="Lv0サンフレア" onclick="addMove('Lv0サンフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv0フレア</button>
@@ -736,7 +736,7 @@ HTML_TEMPLATE = """
 
                                     <!-- ソーラーフレア -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">☄️ ソーラーフレア系</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">ソーラーフレア系</span>
                                         <div class="grid grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="弱ソーラーフレア" onclick="addMove('弱ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-100 border border-red-300 text-red-800 rounded text-[11px] font-black hover:bg-red-200 active:scale-95 transition col-span-3">弱ソーラーフレア (シンボル+1)</button>
                                             <button type="button" data-move-name="Lv0ソーラーフレア" onclick="addMove('Lv0ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv0ソーラー</button>
@@ -751,7 +751,7 @@ HTML_TEMPLATE = """
                                 <div id="tab-sa" class="space-y-3 hidden">
                                     <!-- SA1 -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA1 (サンセイバー) ※Lv1=消費1 / Lv2=消費2</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA1  ※Lv1=消費1 / Lv2=消費2</span>
                                         <div class="grid grid-cols-3 gap-1.5">
                                             <button type="button" data-move-name="SA1_Lv0" onclick="addMove('SA1_Lv0')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv0</button>
                                             <button type="button" data-move-name="SA1_Lv1" onclick="addMove('SA1_Lv1')" class="btn-move-add px-1 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-[11px] font-bold hover:bg-purple-100 active:scale-95 transition">SA1 Lv1</button>
@@ -783,9 +783,9 @@ HTML_TEMPLATE = """
 
                                     <!-- SA3/CA -->
                                     <div>
-                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA3 ＆ CA (アルティメット)</span>
+                                        <span class="text-[9px] font-bold text-gray-400 block mb-1">■ SA3 ＆ CA</span>
                                         <div class="grid grid-cols-2 gap-1.5">
-                                            <button type="button" data-move-name="SA3" onclick="addMove('SA3')" class="btn-move-add px-2 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-bold hover:bg-purple-100 active:scale-95 transition">SA3 (マキシマム)</button>
+                                            <button type="button" data-move-name="SA3" onclick="addMove('SA3')" class="btn-move-add px-2 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-bold hover:bg-purple-100 active:scale-95 transition">SA3 </button>
                                             <button type="button" data-move-name="CA" onclick="addMove('CA')" class="btn-move-add px-2 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded text-xs font-bold hover:bg-purple-100 active:scale-95 transition">CA (クリティカル)</button>
                                         </div>
                                     </div>
@@ -816,7 +816,7 @@ HTML_TEMPLATE = """
                         <!-- 詳細内訳 -->
                         <details class="bg-blue-50/50 border border-blue-100 rounded-lg p-2.5 text-xs">
                             <summary class="cursor-pointer text-blue-700 font-bold hover:text-blue-900 select-none">
-                                📊 ダメージ計算の詳細内訳を表示
+                                 ダメージ計算の詳細内訳を表示
                             </summary>
                             <div id="live-calculation-details" class="mt-2 space-y-1">
                                 <p class="text-xs text-gray-400 text-center py-2">タイムラインに技がありません</p>
@@ -892,15 +892,15 @@ HTML_TEMPLATE = """
                             </div>
 
                             <div class="flex flex-wrap gap-1.5 mb-2.5">
-                                <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-black rounded">💥 {{ combo.damage }} dmg</span>
+                                <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-black rounded">{{ combo.damage }} dmg</span>
                                 <span class="px-2 py-0.5 text-xs font-bold rounded {{ 'bg-black text-yellow-400' if is_burnout_combo else 'bg-blue-100 text-blue-800' }}">
-                                    🔵 使用ゲージ: {{ combo.drive_cost }}P (残り {{ drive_remain if drive_remain >= 0 else 0 }}P) {% if is_burnout_combo %}(バーンアウト！){% endif %}
+                                    使用ゲージ: {{ combo.drive_cost }}P (残り {{ drive_remain if drive_remain >= 0 else 0 }}P) {% if is_burnout_combo %}(バーンアウト！){% endif %}
                                 </span>
                                 <span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded">
-                                    🔴 使用シンボル: {{ combo.symbol_cost }}個 (残り {{ symbol_remain if symbol_remain >= 0 else 0 }}個)
+                                    使用シンボル: {{ combo.symbol_cost }}個 (残り {{ symbol_remain if symbol_remain >= 0 else 0 }}個)
                                 </span>
                                 <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-xs font-bold rounded">
-                                    🔮 使用SAゲージ: {{ combo.sa_cost }}本 (残り {{ sa_remain if sa_remain >= 0 else 0 }}本)
+                                    使用SAゲージ: {{ combo.sa_cost }}本 (残り {{ sa_remain if sa_remain >= 0 else 0 }}本)
                                 </span>
                             </div>
 
@@ -913,7 +913,7 @@ HTML_TEMPLATE = """
                             <!-- 保存済みコンボ：詳細計算アコーディオン -->
                             <details class="bg-gray-50 border border-gray-200 rounded-lg mb-2">
                                 <summary class="cursor-pointer px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 select-none">
-                                    📊 計算式の詳細内訳を表示 (クリック)
+                                    計算式の詳細内訳を表示 (クリック)
                                 </summary>
                                 <div class="px-3 pb-3 pt-1">
                                     <table class="w-full text-left text-[11px] border-collapse">
@@ -1457,10 +1457,10 @@ HTML_TEMPLATE = """
             const symbolCost = symbolStart - symbolRemain;
             const saCost = saStart - saRemain;
             
-            let resourceText = `使用ゲージ: ${driveCost}P (残 ${Math.max(0, driveRemain)}P) | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個) | 🔮 使用SA: ${saCost}本 (残 ${saRemain}本)`;
+            let resourceText = `使用ゲージ: ${driveCost}P (残 ${Math.max(0, driveRemain)}P) | 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個) | 使用SA: ${saCost}本 (残 ${saRemain}本)`;
             
             if (driveStart === 6 && driveRemain <= 0 && currentMoves.length > 0) {
-                resourceText = `🔴 バーンアウト！ | 🔴 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個) | 🔮 使用SA: ${saCost}本 (残 ${saRemain}本)`;
+                resourceText = `バーンアウト！ | 使用シンボル: ${symbolCost}個 (残 ${Math.max(0, symbolRemain)}個) | 使用SA: ${saCost}本 (残 ${saRemain}本)`;
             }
             document.getElementById('preview-resources').innerText = resourceText;
 
