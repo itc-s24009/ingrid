@@ -1,3 +1,4 @@
+```python
 import os
 import json
 import time
@@ -133,24 +134,24 @@ MOVES_DB = {
     "前サンパニッシュ": {"damage": 1000, "start_correction": 0, "cdr": False, "type": "S"},
     "上サンパニッシュ": {"damage": 1100, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA1 (最低保証30% / 即時補正20%)
+    # SA1
     "SA1_Lv0": {"damage": 1900, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv1": {"damage": 2300, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
     "SA1_Lv2": {"damage": 2700, "start_correction": 0, "cdr": False, "minimum_guarantee": 30, "immediate_correction": 20, "type": "S"},
 
-    # SA2発動演出 (0ダメージ・システムユーティリティ扱い)
+    # SA2発動演出
     "SA2発動_Lv0": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv1": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
     "SA2発動_Lv2": {"damage": 0, "start_correction": 0, "cdr": False, "type": "S"},
 
-    # SA2個別分割ヒット (最低保証40% / 即時補正20% / combo_correctionにより100%➔60%始動を実現)
+    # SA2個別分割ヒット
     "SA2_1打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "combo_correction": 30, "type": "S"},
     "SA2_2打目": {"damage": 500, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_3打目": {"damage": 600, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_4打目": {"damage": 800, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
     "SA2_5打目": {"damage": 1000, "start_correction": 0, "cdr": False, "minimum_guarantee": 40, "immediate_correction": 20, "type": "S"},
 
-    # SA3 / CA (最低保証50% / 即時補正20%)
+    # SA3 / CA
     "SA3": {"damage": 4000, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"},
     "CA": {"damage": 4500, "start_correction": 0, "cdr": False, "minimum_guarantee": 50, "immediate_correction": 20, "type": "S"}
 }
@@ -537,7 +538,7 @@ def py_get_combo_details(moves, start_type, min_limit=10):
             
     return steps
 
-# HTMLテンプレート (SortableJSを導入しドラッグ並び替えを実装)
+# HTMLテンプレート (SortableJSによるドラッグ並び替えと、1枚目矢印自動消失CSSを追加)
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ja">
@@ -545,9 +546,9 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>コンボ管理ノート ＆ 計算機</title>
+    <!-- ドラッグ並び替えライブラリ SortableJS をインポート -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- ドラッグ＆ドロップ用 SortableJS ライブラリの読み込み -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         /* 数値入力のスピンボタン(上下矢印)を完全に排除して誤入力を防止 */
         .no-spin::-webkit-outer-spin-button,
@@ -558,15 +559,10 @@ HTML_TEMPLATE = """
         .no-spin {
             -moz-appearance: textfield;
         }
-        
-        /* ドラッグ可能なタイムラインブロックの間の矢印自動表示 */
-        .timeline-block:not(:last-child)::after {
-            content: "➔";
-            margin-left: 0.75rem;
-            margin-right: 0.25rem;
-            color: #9ca3af;
-            font-weight: bold;
-            pointer-events: none; /* ドラッグや選択の邪魔をしない */
+
+        /* タイムラインの「1枚目の技カードの左矢印（➔）」のみをCSS自動制御で消去する */
+        #timeline-container .timeline-item:first-child .arrow {
+            display: none !important;
         }
     </style>
 </head>
@@ -585,6 +581,11 @@ HTML_TEMPLATE = """
                     <form id="combo-form" action="/add" method="post" class="space-y-4">
                         <input type="hidden" name="combo_id" id="combo-id">
                         <input type="hidden" name="moves_json" id="moves-json" value="[]">
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-0.5">コンボ名・状況</label>
+                            <input type="text" name="title" id="input-title" class="w-full px-3 py-1.5 border rounded-lg focus:ring-1 focus:ring-blue-500 text-sm" placeholder="例: 強Kパニカン" required>
+                        </div>
 
                         <!-- 始動属性・使用リソースの設定 -->
                         <div class="grid grid-cols-4 gap-2">
@@ -633,7 +634,7 @@ HTML_TEMPLATE = """
                                 <button type="button" id="btn-tab-sa" onclick="switchTab('tab-sa')" class="tab-btn py-2 text-xs font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition active:scale-95">🔮 SA(アーツ)</button>
                             </div>
 
-                            <!-- タブコンテンツエリア -->
+                            <!-- タブコンテンツエリア (高さを一定に抑えるコンテナ) -->
                             <div class="border border-gray-200 rounded-xl bg-white p-3 shadow-sm min-h-[280px]">
                                 
                                 <!-- ① 通常技・特殊技タブ -->
@@ -648,7 +649,7 @@ HTML_TEMPLATE = """
                                             
                                             <button type="button" data-move-name="中Pタゲコン1" onclick="addMove('中Pタゲコン1')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition text-[11px] truncate">中Pタゲ1</button>
                                             <button type="button" data-move-name="中Pタゲコン2" onclick="addMove('中Pタゲコン2')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition text-[11px] truncate">中Pタゲ2</button>
-                                            <button type="button" data-move-name="中K" onclick="addMove('")" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中K</button>
+                                            <button type="button" data-move-name="中K" onclick="addMove('中K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">中K</button>
                                             
                                             <button type="button" data-move-name="強P" onclick="addMove('強P')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">強P</button>
                                             <button type="button" data-move-name="強K" onclick="addMove('強K')" class="btn-move-add px-2 py-2 bg-white border border-gray-300 rounded text-xs font-semibold shadow-sm hover:bg-gray-50 active:scale-95 transition">強K</button>
@@ -745,7 +746,7 @@ HTML_TEMPLATE = """
                                     <div>
                                         <span class="text-[9px] font-bold text-gray-400 block mb-1">☄️ ソーラーフレア系</span>
                                         <div class="grid grid-cols-3 gap-1.5">
-                                            <button type="button" data-move-name="弱ソーラーフレア" onclick="addMove('弱ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-100 border border-red-300 text-red-800 rounded text-[11px] font-black hover:bg-red-200 active:scale-95 transition col-span-3">弱ソーラー (シンボル+1)</button>
+                                            <button type="button" data-move-name="弱ソーラーフレア" onclick="addMove('弱ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-100 border border-red-300 text-red-800 rounded text-[11px] font-black hover:bg-red-200 active:scale-95 transition col-span-3">弱ソーラーフレア (シンボル+1)</button>
                                             <button type="button" data-move-name="Lv0ソーラーフレア" onclick="addMove('Lv0ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv0ソーラー</button>
                                             <button type="button" data-move-name="Lv1ソーラーフレア" onclick="addMove('Lv1ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv1ソーラー</button>
                                             <button type="button" data-move-name="Lv2ソーラーフレア" onclick="addMove('Lv2ソーラーフレア')" class="btn-move-add px-1 py-2 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-bold hover:bg-red-100 active:scale-95 transition">Lv2ソーラー</button>
@@ -800,9 +801,9 @@ HTML_TEMPLATE = """
                             </div>
                         </div>
 
-                        <!-- タイムライン (SortableJSのために timeline-block などのクラスを統合) -->
+                        <!-- タイムライン (Sortableでドラッグ可能にする) -->
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (☰部分をドラッグで位置を並び替えできます)</label>
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">➔ コンボタイムライン (ドラッグして技の順序を入れ替えることができます)</label>
                             <div id="timeline-container" class="border-2 border-dashed border-gray-200 rounded-xl p-3 bg-gray-50 min-h-[90px] flex flex-wrap gap-2 items-center">
                                 <p id="timeline-placeholder" class="text-xs text-gray-400 w-full text-center py-5">レシピを構築してください</p>
                             </div>
@@ -972,7 +973,7 @@ HTML_TEMPLATE = """
     <script>
         const MOVES_DB = {{ moves_db_json|safe }};
         let currentMoves = [];
-        let sortableInstance = null; // SortableJS のインスタンス保持用
+        let sortableInstance = null; // SortableJSのインスタンス保持用
 
         // タブ切り替えロジック
         function switchTab(tabId) {
@@ -995,35 +996,39 @@ HTML_TEMPLATE = """
             }
         }
 
-        // ドラッグ＆ドロップ並び替え機能の初期化
+        // タイムラインを SortableJS でドラッグ並び替え可能にする初期化処理
         function initSortable() {
-            const container = document.getElementById('timeline-container');
-            if (!container) return;
+            const el = document.getElementById('timeline-container');
+            if (!el) return;
 
-            // 既存のSortableインスタンスがあれば破棄して再バインド
+            // 既存のSortableインスタンスがあれば一旦破棄して再構築
             if (sortableInstance) {
                 sortableInstance.destroy();
             }
 
             if (currentMoves.length === 0) return;
 
-            sortableInstance = new Sortable(container, {
-                animation: 180,              // スムーズなアニメーション
-                draggable: ".timeline-block", // ドラッグ対象のクラス
-                handle: ".drag-handle",      // ☰の部分のみをドラッグ可能にする(入力欄と干渉させないため)
-                ghostClass: "opacity-40",     // 移動中の半透明化
+            sortableInstance = new Sortable(el, {
+                animation: 180, // 入れ替え時のスムーズなアニメーション速度(ms)
+                ghostClass: 'bg-blue-50', // ドラッグ中に元の位置に残る半透明の要素スタイル
+                chosenClass: 'border-blue-500', // ドラッグ対象に選ばれた瞬間のスタイル
+                dragClass: 'opacity-40', // ドラッグ移動中のスタイル
+                filter: 'input, button', // 入力欄と削除ボタンはドラッグ対象から除外し、誤操作を防止する
+                preventOnFilter: false,
+                
+                // ドラッグ終了（ドロップ）時のイベント
                 onEnd: function (evt) {
-                    const oldIndex = evt.oldIndex;
-                    const newIndex = evt.newIndex;
+                    const newMoves = [];
+                    const items = el.querySelectorAll('.timeline-item');
                     
-                    if (oldIndex === newIndex) return;
-                    
-                    // 内部配列の並び替え
-                    const movedItem = currentMoves.splice(oldIndex, 1)[0];
-                    currentMoves.splice(newIndex, 0, movedItem);
-                    
-                    // 順序入れ替え後の再計算およびレンダリング
-                    updateLivePreview();
+                    // DOMの新しい順序からインデックスを抽出し、currentMoves 配列を完全に組み直す
+                    items.forEach(item => {
+                        const originalIndex = parseInt(item.getAttribute('data-move-index'));
+                        newMoves.push(currentMoves[originalIndex]);
+                    });
+
+                    currentMoves = newMoves;
+                    updateLivePreview(); // 組み直した順序でリアルタイムに再計算
                 }
             });
         }
@@ -1530,7 +1535,11 @@ HTML_TEMPLATE = """
                 const canCDR = moveData && moveData.cdr === true;
 
                 const block = document.createElement('div');
-                block.className = "timeline-block flex items-center gap-1.5 transition-all";
+                // 並び替え要素を特定するために 'timeline-item' と 'data-move-index' を付与
+                block.className = `timeline-item flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+                    item.cdr ? 'bg-green-50 border-green-300 text-green-800' : 'text-gray-700'
+                }`;
+                block.setAttribute('data-move-index', index);
 
                 let cdrBtn = '';
                 if (canCDR) {
@@ -1548,22 +1557,20 @@ HTML_TEMPLATE = """
                        </div>`
                     : '';
 
-                // ドラッグ用の掴みどころ(☰)を追加して、カード全体のサイズをタップしやすく大型化
+                // すべての要素に一律で矢印を内包。1番目のみCSS側の ":first-child" セレクタで自動的に非表示になります。
+                const arrowHTML = `<span class="arrow text-gray-400 font-bold mr-1 select-none">➔</span>`;
+
                 block.innerHTML = `
-                    <div class="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-bold shadow-sm ${
-                        item.cdr ? 'bg-green-50 border-green-300 text-green-800' : 'text-gray-700'
-                    }">
-                        <span class="drag-handle cursor-move text-gray-400 hover:text-gray-700 font-mono text-base select-none">☰</span>
-                        <span class="text-sm font-black text-gray-800">${item.name}</span>
-                        ${damageInputHTML}
-                        ${cdrBtn}
-                        <button type="button" onclick="removeMove(${index})" class="text-red-500 font-black hover:text-red-700 ml-1.5 text-lg p-0.5">×</button>
-                    </div>
+                    ${arrowHTML}
+                    <span class="text-sm font-black text-gray-800">${item.name}</span>
+                    ${damageInputHTML}
+                    ${cdrBtn}
+                    <button type="button" onclick="removeMove(${index})" class="text-red-500 font-black hover:text-red-700 ml-1.5 text-lg p-0.5">×</button>
                 `;
                 container.appendChild(block);
             });
 
-            // ドラッグ＆ドロップ機能のバインド
+            // タイムラインの再描画ごとに、SortableJSを再バインドする
             initSortable();
         }
 
@@ -1611,3 +1618,177 @@ HTML_TEMPLATE = """
     </script>
 </body>
 </html>
+"""
+
+# ==============================================================================
+# サーバールーティング
+# ==============================================================================
+@app.route('/', methods=['GET'])
+def index():
+    global db_init_error
+    if db_init_error:
+        return f"""
+        <div style="padding: 20px; font-family: sans-serif; background-color: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 8px; max-width: 800px; margin: 40px auto;">
+            <h3 style="margin-top: 0;">⚠️ データベース接続エラーが発生しました</h3>
+            <p>VercelからNeonデータベースへの接続設定、または接続処理中に以下の問題が発生しました：</p>
+            <pre style="background: #fff; padding: 15px; border-radius: 4px; border: 1px solid #fed7d7; overflow-x: auto; font-family: monospace; font-size: 13px; color: #2d3748;">{db_init_error}</pre>
+            <p style="font-size: 14px; color: #4a5568;">対策：Vercelの設定画面で「DATABASE_URL」環境変数が正しく登録されているか確認してください。</p>
+        </div>
+        """, 500
+
+    drive_filter = request.args.get('drive_filter')
+    symbol_filter = request.args.get('symbol_filter')
+    sa_filter = request.args.get('sa_filter')
+    search_query = request.args.get('search')
+    
+    # データベースから全レコードを取得
+    try:
+        combos_db = Combo.query.order_by(Combo.id.desc()).all()
+    except Exception as e:
+        combos_db = []
+        print(f"Database error: {e}")
+
+    combos = []
+    for c in combos_db:
+        sa_start_val = getattr(c, 'sa_start', 3)
+        sa_cost_val = getattr(c, 'sa_cost', 0)
+        if sa_start_val is None: sa_start_val = 3
+        if sa_cost_val is None: sa_cost_val = 0
+
+        combo_dict = {
+            "id": c.id,
+            "title": c.title,
+            "start_type": c.start_type,
+            "drive_start": c.drive_start,
+            "drive_cost": c.drive_cost,
+            "symbol_start": c.symbol_start,
+            "symbol_cost": c.symbol_cost,
+            "sa_start": sa_start_val,
+            "sa_cost": sa_cost_val,
+            "notes": c.notes,
+            "moves": c.moves,
+            "raw_moves_json": json.dumps(c.moves),
+            "damage": c.damage
+        }
+
+        # フィルター処理
+        if drive_filter and drive_filter != 'all':
+            if combo_dict['drive_start'] != int(drive_filter):
+                continue
+        if symbol_filter and symbol_filter != 'all':
+            if combo_dict['symbol_start'] != int(symbol_filter):
+                continue
+        if sa_filter and sa_filter != 'all':
+            if combo_dict['sa_start'] != int(sa_filter):
+                continue
+        if search_query:
+            q = search_query.lower()
+            in_title = q in combo_dict['title'].lower()
+            in_notes = q in (combo_dict['notes'] or '').lower()
+            if not (in_title or in_notes):
+                continue
+                
+        # 画面描画用に動的な詳細ステップ計算をバインド
+        combo_dict['steps'] = py_get_combo_details(combo_dict['moves'], combo_dict['start_type'])
+        combos.append(combo_dict)
+        
+    return render_template_string(
+        HTML_TEMPLATE, 
+        combos=combos, 
+        drive_filter=drive_filter, 
+        symbol_filter=symbol_filter, 
+        sa_filter=sa_filter,
+        search_query=search_query,
+        moves_db_json=json.dumps(MOVES_DB)
+    )
+
+@app.route('/add', methods=['POST'])
+def add():
+    moves = json.loads(request.form.get('moves_json', '[]'))
+    start_type = request.form.get('start_type', 'normal')
+    drive_start = int(request.form.get('drive_start', 6))
+    symbol_start = int(request.form.get('symbol_start', 0))
+    sa_start = int(request.form.get('sa_start', 3))
+    
+    drive_remain, symbol_remain, sa_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start, sa_start)
+    drive_cost = drive_start - drive_remain
+    symbol_cost = symbol_start - symbol_remain
+    sa_cost = sa_start - sa_remain
+    damage = py_calculate_damage(moves, start_type)
+    
+    new_combo = Combo(
+        id=str(int(time.time() * 1000)),
+        title=request.form.get('title', '無題'),
+        start_type=start_type,
+        drive_start=drive_start,
+        drive_cost=drive_cost,
+        symbol_start=symbol_start,
+        symbol_cost=symbol_cost,
+        sa_start=sa_start,
+        sa_cost=sa_cost,
+        notes=request.form.get('notes', ''),
+        moves=moves,
+        damage=damage
+    )
+    
+    try:
+        db.session.add(new_combo)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Save error: {e}")
+        
+    return redirect(url_for('index'))
+
+@app.route('/edit', methods=['POST'])
+def edit():
+    combo_id = request.form.get('combo_id')
+    moves = json.loads(request.form.get('moves_json', '[]'))
+    start_type = request.form.get('start_type', 'normal')
+    drive_start = int(request.form.get('drive_start', 6))
+    symbol_start = int(request.form.get('symbol_start', 0))
+    sa_start = int(request.form.get('sa_start', 3))
+    
+    drive_remain, symbol_remain, sa_remain, _ = py_simulate_resources_sequentially(moves, drive_start, symbol_start, sa_start)
+    drive_cost = drive_start - drive_remain
+    symbol_cost = symbol_start - symbol_remain
+    sa_cost = sa_start - sa_remain
+    damage = py_calculate_damage(moves, start_type)
+    
+    combo = Combo.query.get(combo_id)
+    if combo:
+        combo.title = request.form.get('title', '無題')
+        combo.start_type = start_type
+        combo.drive_start = drive_start
+        combo.drive_cost = drive_cost
+        combo.symbol_start = symbol_start
+        combo.symbol_cost = symbol_cost
+        combo.sa_start = sa_start
+        combo.sa_cost = sa_cost
+        combo.notes = request.form.get('notes', '')
+        combo.moves = moves
+        combo.damage = damage
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Edit error: {e}")
+            
+    return redirect(url_for('index'))
+
+@app.route('/delete/<combo_id>', methods=['POST'])
+def delete(combo_id):
+    combo = Combo.query.get(combo_id)
+    if combo:
+        try:
+            db.session.delete(combo)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Delete error: {e}")
+            
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
+```
